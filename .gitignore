@@ -1,0 +1,6 @@
+# secret data
+config.py
+test_code.py
+
+# databases
+*.db
