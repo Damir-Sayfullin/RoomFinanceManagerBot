@@ -11,7 +11,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 def start(message):
     db_functions.create_tables()  # создание таблиц
     if db_functions.is_user_have_in_db(message):
-        pass
+        start_menu(message)
     else:
         help_text = ''
         with open("welcome.txt", "r", encoding='UTF8') as f:
@@ -19,13 +19,17 @@ def start(message):
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
         bot.send_message(message.chat.id, "<b>Введите ваше имя:</b>", parse_mode='html')
-        create_new_user(message)
         bot.register_next_step_handler(message, create_new_user)
 
 
 def create_new_user(message):
     db_functions.create_new_user(message)
-    bot.send_message(message.chat.id, f"Добро пожаловать, <b>{message.text}</b>!", parse_mode='html')
+    start_menu(message)
+
+
+def start_menu(message):
+    name = db_functions.get_user_name(message)
+    bot.send_message(message.chat.id, f"Добро пожаловать, <b>{name}</b>!", parse_mode='html')
 
 
 # тестовый обработчик
