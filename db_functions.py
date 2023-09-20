@@ -14,11 +14,10 @@ def create_tables():
 
     cur.execute('CREATE TABLE IF NOT EXISTS rooms ('
                 'id INTEGER PRIMARY KEY,'
-                'admin_id INTEGER,'
+                'admin_id INTEGER UNIQUE,'
                 'name VARCHAR(50) NOT NULL)')
     conn.commit()
 
-    # cur.execute("INSERT INTO rooms (admin_id, name) VALUES (?, ?)", (1, "454"))
     # todo: другие таблицы
 
     cur.close()
@@ -46,7 +45,7 @@ def get_user_name(message):
     return query[0][1] if query else False
 
 
-def is_user_have_room(message):
+def get_user_room(message):
     """ Проверка наличия комнаты у пользователя в бд. Возвращает данные о комнате или False. """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
@@ -59,9 +58,26 @@ def is_user_have_room(message):
         cur = conn.cursor()
         cur.execute('SELECT * FROM rooms WHERE id=?', (result[0][0],))
         result2 = cur.fetchall()
-        print(result2)
         cur.close()
         conn.close()
         return result2
     else:
         return False
+
+
+def create_new_room(message):
+    """ Создание новой комнаты """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    # todo: проверка на наличие комнаты с таким же именем
+    # создание комнаты с полученным названием
+    cur.execute("INSERT INTO rooms (admin_id, name) VALUES (?, ?)", (message.from_user.id, message.text))
+    conn.commit()
+    # получение id комнаты
+    cur.execute('SELECT id FROM rooms WHERE admin_id=? AND name=?', (message.from_user.id, message.text))
+    room_id = cur.fetchall()
+    # присвоение id комнаты создателю
+    cur.execute("UPDATE users SET room_id=? WHERE id=?", (room_id[0][0], message.from_user.id))
+    conn.commit()
+    cur.close()
+    conn.close()

@@ -20,7 +20,7 @@ def start(message):
             for line in f.readlines():
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
-        bot.send_message(message.chat.id, "Давай знакомиться! <b>Введи своё имя:</b>", parse_mode='html')
+        bot.send_message(message.chat.id, "Давай знакомиться!\n<b>Введи своё имя:</b>", parse_mode='html')
         bot.register_next_step_handler(message, create_new_user)
 
 
@@ -33,13 +33,16 @@ def create_new_user(message):
 # вывод меню в зависимости от наличия комнаты
 def start_menu(message):
     name = db_functions.get_user_name(message)
-    room = db_functions.is_user_have_room(message)
+    room = db_functions.get_user_room(message)
     if not room:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         btn1 = types.KeyboardButton('Создать новую комнату')
         btn2 = types.KeyboardButton('Присоединиться к существующей')
         markup.add(btn1, btn2)
-        bot.send_message(message.chat.id, f"Привет, <b>{name}</b>!\nСейчас ты не состоишь ни в одной комнате.",
+        bot.send_message(message.chat.id,
+                         f"Привет, <b>{name}</b>!\n"
+                         f"Сейчас ты не состоишь ни в одной комнате.\n"
+                         f"<b>Выбери команду из меню.</b>",
                          parse_mode='html', reply_markup=markup)
     else:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -53,7 +56,10 @@ def start_menu(message):
         btn6 = types.KeyboardButton('Информация о текущей комнате')
         markup.add(btn5)
         markup.add(btn6)
-        bot.send_message(message.chat.id, f"Привет, <b>{name}</b>!\nТекущая комната: {room[0][2]}",
+        bot.send_message(message.chat.id,
+                         f'Привет, <b>{name}</b>!\n'
+                         f'Текущая комната: "{room[0][2]}".\n'
+                         f'<b>Выбери команду из меню.</b>',
                          parse_mode='html', reply_markup=markup)
     bot.register_next_step_handler(message, on_click_menu_commands)
 
@@ -61,9 +67,33 @@ def start_menu(message):
 # обработчик кнопок меню
 def on_click_menu_commands(message):
     if message.text == 'Создать новую комнату':
-        pass
+        room = db_functions.get_user_room(message)
+        if not room:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn)
+            bot.send_message(message.chat.id, "Хорошо, давай создадим новую комнату!\n"
+                                              "<b>Введи название для комнаты:</b>",
+                             parse_mode='html', reply_markup=markup)
+            bot.register_next_step_handler(message, create_new_room)
+        else:
+            bot.send_message(message.chat.id, f'Ошибка! Покиньте текущую комнату "{room[0][2]}", чтобы создать новую.',
+                             parse_mode='html')
+            start_menu(message)
+    elif message.text == '/test':
+        test(message)
     else:
-        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуйте еще раз!")
+        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        start_menu(message)
+
+
+# создание новой комнаты с введенным именем
+def create_new_room(message):
+    if message.text == '⬅️ Назад':
+        start_menu(message)
+    else:
+        db_functions.create_new_room(message)
+        bot.send_message(message.chat.id, f"Комната с названием \"{message.text}\" успешно создана!")
         start_menu(message)
 
 
@@ -76,10 +106,26 @@ def test(message):
     users = cur.fetchall()
     cur.close()
     conn.close()
-    info = ''
+    info = 'Таблица "users"\n\n'
     for el in users:
-        info += f'ID: {el[0]}, имя: {el[1]}, комната: {el[2]}\n'
+        info += f'id: {el[0]}, name: {el[1]}, room_id: {el[2]}\n'
     bot.send_message(message.chat.id, info)
+
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM rooms")
+    users = cur.fetchall()
+    cur.close()
+    conn.close()
+    info = 'Таблица "rooms"\n\n'
+    for el in users:
+        info += f'id: {el[0]}, admin_id: {el[1]}, name: {el[2]}\n'
+    bot.send_message(message.chat.id, info)
+
+
+@bot.message_handler()
+def start(message):
+    start_menu(message)
 
 
 bot.infinity_polling()
