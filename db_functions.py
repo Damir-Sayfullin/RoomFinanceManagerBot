@@ -5,25 +5,24 @@ def create_tables():
     """ Создает таблицы в бд, если их не существует. """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
+
     cur.execute('CREATE TABLE IF NOT EXISTS users ('
                 'id INTEGER PRIMARY KEY,'
                 'name VARCHAR(50) NOT NULL,'
                 'room_id VARCHAR(50))')
     conn.commit()
+
+    cur.execute('CREATE TABLE IF NOT EXISTS rooms ('
+                'id INTEGER PRIMARY KEY,'
+                'admin_id INTEGER,'
+                'name VARCHAR(50) NOT NULL)')
+    conn.commit()
+
+    # cur.execute("INSERT INTO rooms (admin_id, name) VALUES (?, ?)", (1, "454"))
     # todo: другие таблицы
+
     cur.close()
     conn.close()
-
-
-def is_user_have_in_db(message):
-    """ Проверка наличия пользователя в бд. Возвращает True или False. """
-    conn = sqlite3.connect('chatbot.db')
-    cur = conn.cursor()
-    cur.execute('SELECT * FROM users WHERE id=?', (message.from_user.id,))
-    result = cur.fetchall()
-    cur.close()
-    conn.close()
-    return False if not result else True
 
 
 def create_new_user(message):
@@ -37,14 +36,14 @@ def create_new_user(message):
 
 
 def get_user_name(message):
-    """ Поиск имени пользователя по ID """
+    """ Поиск имени пользователя по ID. Возвращает имя пользователя или False."""
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    cur.execute("SELECT name FROM users  WHERE id=?", (message.from_user.id,))
+    cur.execute("SELECT * FROM users  WHERE id=?", (message.from_user.id,))
     query = cur.fetchall()
     cur.close()
     conn.close()
-    return query[0][0]
+    return query[0][1] if query else False
 
 
 def is_user_have_room(message):

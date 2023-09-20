@@ -12,7 +12,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 @bot.message_handler(commands=['start'])
 def start(message):
     db_functions.create_tables()  # создание таблиц
-    if db_functions.is_user_have_in_db(message):
+    if db_functions.get_user_name(message):
         start_menu(message)
     else:
         help_text = ''
@@ -20,15 +20,17 @@ def start(message):
             for line in f.readlines():
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
-        bot.send_message(message.chat.id, "<b>Введите ваше имя:</b>", parse_mode='html')
+        bot.send_message(message.chat.id, "Давай знакомиться! <b>Введи своё имя:</b>", parse_mode='html')
         bot.register_next_step_handler(message, create_new_user)
 
 
+# создание нового пользователя с введенным именем
 def create_new_user(message):
     db_functions.create_new_user(message)
     start_menu(message)
 
 
+# вывод меню в зависимости от наличия комнаты
 def start_menu(message):
     name = db_functions.get_user_name(message)
     room = db_functions.is_user_have_room(message)
@@ -37,7 +39,7 @@ def start_menu(message):
         btn1 = types.KeyboardButton('Создать новую комнату')
         btn2 = types.KeyboardButton('Присоединиться к существующей')
         markup.add(btn1, btn2)
-        bot.send_message(message.chat.id, f"Добро пожаловать, <b>{name}</b>!\nСейчас вы не состоите в комнате.",
+        bot.send_message(message.chat.id, f"Привет, <b>{name}</b>!\nСейчас ты не состоишь ни в одной комнате.",
                          parse_mode='html', reply_markup=markup)
     else:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -51,10 +53,18 @@ def start_menu(message):
         btn6 = types.KeyboardButton('Информация о текущей комнате')
         markup.add(btn5)
         markup.add(btn6)
-        # bot.send_message(message.chat.id, f"Добро пожаловать, <b>{name}</b>!\nТекущая комната: {room[0][1]}",
-        #                  parse_mode='html', reply_markup=markup)
-        bot.send_message(message.chat.id, f"Добро пожаловать, <b>{name}</b>!\nТекущая комната: тест",
+        bot.send_message(message.chat.id, f"Привет, <b>{name}</b>!\nТекущая комната: {room[0][2]}",
                          parse_mode='html', reply_markup=markup)
+    bot.register_next_step_handler(message, on_click_menu_commands)
+
+
+# обработчик кнопок меню
+def on_click_menu_commands(message):
+    if message.text == 'Создать новую комнату':
+        pass
+    else:
+        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуйте еще раз!")
+        start_menu(message)
 
 
 # тестовый обработчик
