@@ -8,9 +8,11 @@ import db_functions
 # bot = telebot.TeleBot('6216891307:AAGzqwiMXr5TkTBJifKyuAd06z7l8_R0uCI')
 bot = telebot.TeleBot(BOT_TOKEN)
 
+room_name = ''
+
 
 @bot.message_handler(commands=['start'])
-def start(message):
+def command_start(message):
     db_functions.create_tables()  # создание таблиц
     if db_functions.get_user_name(message):
         start_menu(message)
@@ -58,7 +60,7 @@ def start_menu(message):
         markup.add(btn6)
         bot.send_message(message.chat.id,
                          f'Привет, <b>{name}</b>!\n'
-                         f'Текущая комната: "{room[0][2]}".\n'
+                         f'Текущая комната: <b>"{room[0][2]}"</b>.\n'
                          f'<b>Выбери команду из меню.</b>',
                          parse_mode='html', reply_markup=markup)
     bot.register_next_step_handler(message, on_click_menu_commands)
@@ -75,9 +77,10 @@ def on_click_menu_commands(message):
             bot.send_message(message.chat.id, "Хорошо, давай создадим новую комнату!\n"
                                               "<b>Введи название для комнаты:</b>",
                              parse_mode='html', reply_markup=markup)
-            bot.register_next_step_handler(message, create_new_room)
+            bot.register_next_step_handler(message, create_new_room_name)
         else:
-            bot.send_message(message.chat.id, f'Ошибка! Покиньте текущую комнату "{room[0][2]}", чтобы создать новую.',
+            bot.send_message(message.chat.id,
+                             f'Ошибка! Покиньте текущую комнату <b>"{room[0][2]}"</b>, чтобы создать новую.',
                              parse_mode='html')
             start_menu(message)
     elif message.text == '/test':
@@ -87,14 +90,31 @@ def on_click_menu_commands(message):
         start_menu(message)
 
 
-# создание новой комнаты с введенным именем
-def create_new_room(message):
+# ввод имени для создания комнаты
+def create_new_room_name(message):
+    global room_name
     if message.text == '⬅️ Назад':
         start_menu(message)
     else:
-        db_functions.create_new_room(message)
-        bot.send_message(message.chat.id, f"Комната с названием \"{message.text}\" успешно создана!")
+        bot.send_message(message.chat.id, f"Прекрасное название для комнаты: \"{message.text}\".\n"
+                                          f"<b>Теперь придумай пароль:</b>", parse_mode='html')
+        room_name = message.text
+        bot.register_next_step_handler(message, create_new_room_pass)
+
+
+# ввод пароля и создание комнаты
+def create_new_room_pass(message):
+    if message.text == '⬅️ Назад':
         start_menu(message)
+    else:
+        if len(message.text) >= 6:
+            db_functions.create_new_room(message, room_name)
+            bot.send_message(message.chat.id, f"Комната с названием <b>\"{room_name}\"</b> успешно создана!")
+            start_menu(message)
+        else:
+            bot.send_message(message.chat.id, f"Пароль не может быть короче 6 символов!\n"
+                                              f"<b>Придумай другой пароль:</b>", parse_mode='html')
+            bot.register_next_step_handler(message, create_new_room_pass)
 
 
 # тестовый обработчик
@@ -119,13 +139,14 @@ def test(message):
     conn.close()
     info = 'Таблица "rooms"\n\n'
     for el in users:
-        info += f'id: {el[0]}, admin_id: {el[1]}, name: {el[2]}\n'
+        info += f'id: {el[0]}, admin_id: {el[1]}, name: {el[2]}, pass: {el[3]}\n'
     bot.send_message(message.chat.id, info)
 
 
+# обработка остального текста
 @bot.message_handler()
-def start(message):
-    start_menu(message)
+def other_messages(message):
+    command_start(message)
 
 
 bot.infinity_polling()
