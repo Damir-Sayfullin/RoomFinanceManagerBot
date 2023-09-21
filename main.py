@@ -8,7 +8,10 @@ import db_functions
 # bot = telebot.TeleBot('6216891307:AAGzqwiMXr5TkTBJifKyuAd06z7l8_R0uCI')
 bot = telebot.TeleBot(BOT_TOKEN)
 
-room_name = ''
+var_create_room_name = ''
+var_join_room_id = None
+var_join_room_pass = None
+var_join_room_name = None
 
 
 @bot.message_handler(commands=['start'])
@@ -44,7 +47,7 @@ def start_menu(message):
         bot.send_message(message.chat.id,
                          f"Привет, <b>{name}</b>!\n"
                          f"Сейчас ты не состоишь ни в одной комнате.\n"
-                         f"<b>Выбери команду из меню.</b>",
+                         f"<b>Выбери команду из меню:</b>",
                          parse_mode='html', reply_markup=markup)
     else:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -61,7 +64,7 @@ def start_menu(message):
         bot.send_message(message.chat.id,
                          f'Привет, <b>{name}</b>!\n'
                          f'Текущая комната: <b>"{room[0][2]}"</b>.\n'
-                         f'<b>Выбери команду из меню.</b>',
+                         f'<b>Выбери команду из меню:</b>',
                          parse_mode='html', reply_markup=markup)
     bot.register_next_step_handler(message, on_click_menu_commands)
 
@@ -83,6 +86,42 @@ def on_click_menu_commands(message):
                              f'Ошибка! Покиньте текущую комнату <b>"{room[0][2]}"</b>, чтобы создать новую.',
                              parse_mode='html')
             start_menu(message)
+
+    elif message.text == 'Присоединиться к существующей':
+        room = db_functions.get_user_room(message)
+        if not room:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn)
+            bot.send_message(message.chat.id, "<b>Введи id для существующей комнаты:</b>",
+                             parse_mode='html', reply_markup=markup)
+            bot.register_next_step_handler(message, join_new_room_id)
+        else:
+            bot.send_message(message.chat.id,
+                             f'Ошибка! Покиньте текущую комнату <b>"{room[0][2]}"</b>, чтобы присоединиться к новой.',
+                             parse_mode='html')
+            start_menu(message)
+
+    elif message.text == 'Информация о текущей комнате':
+        room = db_functions.get_user_room(message)
+        if room:
+            admin_name = db_functions.get_admin_name_by_room_id(room[0][0])
+            admin_username = db_functions.get_admin_username_by_room_id(room[0][0])
+            users_list = db_functions.get_users_by_room_id(room[0][0])
+            bot.send_message(message.chat.id, f'***** <b>Комната {room[0][2]}</b> *****\n\n'
+                                              f'<b>ID:</b> {room[0][0]}\n'
+                                              f'<b>Название:</b> {room[0][2]}\n'
+                                              f'<b>Админ комнаты:</b> <a href="t.me/{admin_username}">{admin_name}</a>\n'
+                                              f'<b>Участники:</b>\n'
+                                              f'{users_list}\n',
+                             parse_mode='html', disable_web_page_preview=True)
+            start_menu(message)
+        else:
+            bot.send_message(message.chat.id,
+                             f'Ошибка! У вас нет комнаты. Создайте новую или присоединитесь к существующей.',
+                             parse_mode='html')
+            start_menu(message)
+
     elif message.text == '/test':
         test(message)
     else:
@@ -92,13 +131,13 @@ def on_click_menu_commands(message):
 
 # ввод имени для создания комнаты
 def create_new_room_name(message):
-    global room_name
+    global var_create_room_name
     if message.text == '⬅️ Назад':
         start_menu(message)
     else:
         bot.send_message(message.chat.id, f"Прекрасное название для комнаты: \"{message.text}\".\n"
                                           f"<b>Теперь придумай пароль:</b>", parse_mode='html')
-        room_name = message.text
+        var_create_room_name = message.text
         bot.register_next_step_handler(message, create_new_room_pass)
 
 
@@ -108,13 +147,52 @@ def create_new_room_pass(message):
         start_menu(message)
     else:
         if len(message.text) >= 6:
-            db_functions.create_new_room(message, room_name)
-            bot.send_message(message.chat.id, f"Комната с названием <b>\"{room_name}\"</b> успешно создана!")
+            db_functions.create_new_room(message, var_create_room_name)
+            bot.send_message(message.chat.id,
+                             f"Комната с названием <b>\"{var_create_room_name}\"</b> успешно создана!",
+                             parse_mode='html')
             start_menu(message)
         else:
             bot.send_message(message.chat.id, f"Пароль не может быть короче 6 символов!\n"
                                               f"<b>Придумай другой пароль:</b>", parse_mode='html')
             bot.register_next_step_handler(message, create_new_room_pass)
+
+
+# ввод id для присоединения к комнате
+def join_new_room_id(message):
+    global var_join_room_id, var_join_room_name, var_join_room_pass
+    if message.text == '⬅️ Назад':
+        start_menu(message)
+    else:
+        room_info = db_functions.check_room_by_id(message)
+        if room_info:
+            bot.send_message(message.chat.id, f"Комната <b>\"{room_info[2]}\"</b> найдена!\n"
+                                              f"<b>Введите пароль от комнаты:</b>", parse_mode='html')
+            var_join_room_id = message.text
+            var_join_room_name = room_info[2]
+            var_join_room_pass = room_info[3]
+            bot.register_next_step_handler(message, join_new_room_pass)
+        else:
+            bot.send_message(message.chat.id, f"Комната с <b>id={message.text}</b> не найдена.\n"
+                                              f"<b>Введи id для существующей комнаты:</b>", parse_mode='html')
+            bot.register_next_step_handler(message, join_new_room_id)
+
+
+# ввод пароля и присоединение к комнате
+def join_new_room_pass(message):
+    if message.text == '⬅️ Назад':
+        start_menu(message)
+    else:
+        if db_functions.check_pass(message, var_join_room_pass):
+            db_functions.join_user_on_room(message, var_join_room_id)
+            bot.send_message(message.chat.id,
+                             f"Вы успешно присоединились к комнате <b>\"{var_join_room_name}\"</b>!",
+                             parse_mode='html')
+            start_menu(message)
+        else:
+            bot.send_message(message.chat.id, f"Неверный пароль!\n"
+                                              f"<b>Попробуй ввести пароль еще раз:</b>", parse_mode='html')
+            bot.register_next_step_handler(message, join_new_room_pass)
 
 
 # тестовый обработчик
