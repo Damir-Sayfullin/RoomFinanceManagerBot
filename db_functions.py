@@ -157,4 +157,33 @@ def get_admin_username_by_room_id(room_id):
 
 
 def get_users_by_room_id(room_id):
-    pass
+    """ Поиск участников комнаты по id комнаты """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("SELECT name, username FROM users WHERE room_id=?", (room_id,))
+    result = cur.fetchall()
+    cur.close()
+    conn.close()
+    users = ''
+    for user in result:
+        users += f'<a href="t.me/{user[1]}">{user[0]}</a>\n'
+    return users
+
+
+def edit_room_name(message, room_id):
+    """ Редактирование названия комнаты по его id """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("UPDATE rooms SET name=? WHERE id=?", (message.text, room_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def leave_room(message):
+    """ Удаление комнаты у пользователя по его id """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET room_id=? WHERE id=?", (None, message.from_user.id))
+    conn.commit()
+    cur.close()
+    conn.close()
