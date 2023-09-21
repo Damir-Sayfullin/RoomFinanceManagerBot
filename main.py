@@ -21,7 +21,7 @@ def command_start(message):
         start_menu(message)
     else:
         help_text = ''
-        with open("welcome.txt", "r", encoding='UTF8') as f:
+        with open("about.txt", "r", encoding='UTF8') as f:
             for line in f.readlines():
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
