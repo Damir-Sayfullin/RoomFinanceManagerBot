@@ -6,12 +6,13 @@ from config import BOT_TOKEN
 import db_functions
 
 # bot = telebot.TeleBot('6216891307:AAGzqwiMXr5TkTBJifKyuAd06z7l8_R0uCI')
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, skip_pending=True)
 
-var_create_room_name = ''
+var_create_room_name = None
 var_join_room_id = None
 var_join_room_pass = None
 var_join_room_name = None
+var_new_admin = None
 
 
 @bot.message_handler(commands=['start'])
@@ -47,7 +48,7 @@ def menu_start(message):
         markup.add(btn1, btn2)
         bot.send_message(message.chat.id,
                          f"Привет, <b>{name}</b>!\n"
-                         f"Сейчас ты не состоишь ни в одной комнате.\n"
+                         f"Сейчас ты не состоишь ни в одной комнате.\n\n"
                          f"<b>Выбери команду из меню:</b>",
                          parse_mode='html', reply_markup=markup)
     else:
@@ -113,18 +114,24 @@ def on_click_menu_start(message):
         bot.register_next_step_handler(message, on_click_menu_start)
 
 
+# меню информации о комнате
 def menu_room_info(message):
     room = db_functions.get_user_room(message)
     if room:
         admin_name = db_functions.get_admin_name_by_room_id(room[0][0])
         admin_username = db_functions.get_admin_username_by_room_id(room[0][0])
-        users_list = db_functions.get_users_by_room_id(room[0][0])
+        users = db_functions.get_users_by_room_id(room[0][0])
+        users_list = ''
+        for user in users:
+            users_list += f'<a href="t.me/{user[3]}">{user[1]}</a>\n'
 
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         # если пользователь админ комнаты
         if room[0][1] == message.from_user.id:
+        # todo: убрать
+        # if not room[0][1] == message.from_user.id:
             btn1 = types.KeyboardButton('✏️ Изменить название комнаты')
-            btn2 = types.KeyboardButton('*👑 Передать роль админа')
+            btn2 = types.KeyboardButton('👑 Передать роль админа')
             btn3 = types.KeyboardButton('🚫 Покинуть комнату')
             btn4 = types.KeyboardButton('*🗑️ Удалить комнату')
             btn5 = types.KeyboardButton('⬅️ Назад')
@@ -139,11 +146,12 @@ def menu_room_info(message):
             markup.add(btn1)
             markup.add(btn2)
 
-        bot.send_message(message.chat.id, f'***** <b>Комната \"{room[0][2]}\"</b> *****\n\n'
+        bot.send_message(message.chat.id, f'<b>Комната \"{room[0][2]}\"</b>\n\n'
                                           f'<b>ID:</b> {room[0][0]}\n'
                                           f'<b>Админ комнаты:</b> <a href="t.me/{admin_username}">{admin_name}</a>\n'
                                           f'<b>Участники:</b>\n'
-                                          f'{users_list}\n',
+                                          f'{users_list}\n'
+                                          f'<b>Выбери команду из меню:</b>',
                          parse_mode='html', reply_markup=markup, disable_web_page_preview=True)
         bot.register_next_step_handler(message, on_click_room_info)
     else:
@@ -236,9 +244,7 @@ def on_click_room_info(message):
 
     elif message.text == '🚫 Покинуть комнату':
         room = db_functions.get_user_room(message)
-        # todo: раскомментировать после реализации функционала
         if not room[0][1] == message.from_user.id:
-        # if room[0][1] == message.from_user.id:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
             btn1 = types.KeyboardButton('🚫 Да, я точно хочу покинуть комнату')
             btn2 = types.KeyboardButton('⬅️ Назад')
@@ -254,10 +260,25 @@ def on_click_room_info(message):
                                               f"пока являетесь его админом. "
                                               f"Передайте роль админа другому участнику комнаты, "
                                               f"чтобы покинуть его или удалите комнату полностью.", parse_mode='html')
+            bot.register_next_step_handler(message, on_click_room_info)
+    elif message.text == '👑 Передать роль админа':
+        room = db_functions.get_user_room(message)
+        if room[0][1] == message.from_user.id:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            users = db_functions.get_users_by_room_id(room[0][0])
+            for user in users:
+                markup.add(types.KeyboardButton(f'{user[1]} ({user[3]})'))
+            btn1 = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn1)
+            bot.send_message(message.chat.id,
+                             f"Выберите, кому вы хотите передать роль админа комнаты <b>\"{room[0][2]}\"</b>:",
+                             parse_mode='html', reply_markup=markup)
+            bot.register_next_step_handler(message, change_room_admin)
+        else:
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Вы не являетесь админом комнаты.", parse_mode='html')
             menu_room_info(message)
 
-    # elif message.text == '👑 Передать роль админа':
-    #     pass
+
     # elif message.text == '🗑️ Удалить комнату':
     #     pass
 
@@ -292,6 +313,55 @@ def leave_room(message):
         bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
         bot.register_next_step_handler(message, leave_room)
 
+# todo: защита от спама
+def change_room_admin(message):
+    global var_new_admin
+    if message.text == '⬅️ Назад':
+        menu_room_info(message)
+    else:
+        room = db_functions.get_user_room(message)
+        users = db_functions.get_users_by_room_id(room[0][0])
+        for user in users:
+            # todo: для отладки
+            print(f'{user[1]} ({user[3]})')
+            if message.text == f'{user[1]} ({user[3]})':
+                var_new_admin = user
+                break
+        if var_new_admin:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn1 = types.KeyboardButton('👑 Да, я точно хочу передать роль админа')
+            btn2 = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn1)
+            markup.add(btn2)
+            bot.send_message(message.chat.id,
+                             f'Вы точно хотите передать роль админа комнаты <b>\"{room[0][2]}\"</b> '
+                             f'пользователю <a href="t.me/{user[3]}">{user[1]}</a>?',
+                             parse_mode='html', reply_markup=markup, disable_web_page_preview=True)
+            bot.register_next_step_handler(message, change_room_admin_accept)
+        else:
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Пользователь не найден! "
+                                              f"<b>Проверь правильность ввода данных или "
+                                              f"выбери пользователя из меню:</b>",
+                             parse_mode='html')
+            bot.register_next_step_handler(message, change_room_admin)
+
+
+def change_room_admin_accept(message):
+    if message.text == '⬅️ Назад':
+        menu_room_info(message)
+    elif message.text == '👑 Да, я точно хочу передать роль админа':
+        room = db_functions.get_user_room(message)
+        user = var_new_admin
+        db_functions.change_room_admin(message, room[0][0], user)
+        bot.send_message(message.chat.id,
+                         f'Роль админа комнаты <b>\"{room[0][2]}\"</b> была передана '
+                         f'пользователю <a href="t.me/{user[3]}">{user[1]}</a>!',
+                         parse_mode='html', disable_web_page_preview=True)
+        menu_room_info(message)
+    else:
+        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.register_next_step_handler(message, change_room_admin_accept)
+
 
 # тестовый обработчик
 @bot.message_handler(commands=['test'])
@@ -323,5 +393,5 @@ def test(message):
 def other_messages(message):
     command_start(message)
 
-
-bot.infinity_polling()
+print("Бот запущен...")
+bot.infinity_polling(skip_pending=True)

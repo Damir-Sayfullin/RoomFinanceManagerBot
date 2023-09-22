@@ -160,13 +160,10 @@ def get_users_by_room_id(room_id):
     """ Поиск участников комнаты по id комнаты """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    cur.execute("SELECT name, username FROM users WHERE room_id=?", (room_id,))
-    result = cur.fetchall()
+    cur.execute("SELECT * FROM users WHERE room_id=?", (room_id,))
+    users = cur.fetchall()
     cur.close()
     conn.close()
-    users = ''
-    for user in result:
-        users += f'<a href="t.me/{user[1]}">{user[0]}</a>\n'
     return users
 
 
@@ -184,6 +181,16 @@ def leave_room(message):
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
     cur.execute("UPDATE users SET room_id=? WHERE id=?", (None, message.from_user.id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def change_room_admin(message, room_id, new_admin_user):
+    """ Передача роли админа комнаты по id комнаты и новому админу """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("UPDATE rooms SET admin_id=? WHERE id=?", (new_admin_user[0], room_id))
     conn.commit()
     cur.close()
     conn.close()
