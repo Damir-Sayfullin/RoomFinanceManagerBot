@@ -6,14 +6,13 @@ from config import BOT_TOKEN
 import db_functions
 
 # bot = telebot.TeleBot('6216891307:AAGzqwiMXr5TkTBJifKyuAd06z7l8_R0uCI')
-bot = telebot.TeleBot(BOT_TOKEN, skip_pending=True)
+bot = telebot.TeleBot(BOT_TOKEN, skip_pending=True, threaded=False)
 
 var_create_room_name = None
 var_join_room_id = None
 var_join_room_pass = None
 var_join_room_name = None
 var_new_admin = None
-
 
 @bot.message_handler(commands=['start'])
 def command_start(message):
@@ -73,7 +72,9 @@ def menu_start(message):
 
 # обработчик кнопок меню
 def on_click_menu_start(message):
-    if message.text == 'Создать новую комнату':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == 'Создать новую комнату':
         room = db_functions.get_user_room(message)
         if not room:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -108,7 +109,7 @@ def on_click_menu_start(message):
         menu_room_info(message)
 
     elif message.text == '/test':
-        test(message)
+        command_test(message)
     else:
         bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
         bot.register_next_step_handler(message, on_click_menu_start)
@@ -164,7 +165,9 @@ def menu_room_info(message):
 # ввод имени для создания комнаты
 def create_new_room_name(message):
     global var_create_room_name
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_start(message)
     else:
         bot.send_message(message.chat.id, f"Прекрасное название для комнаты: \"{message.text}\".\n"
@@ -175,7 +178,9 @@ def create_new_room_name(message):
 
 # ввод пароля и создание комнаты
 def create_new_room_pass(message):
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_start(message)
     else:
         if len(message.text) >= 6:
@@ -193,7 +198,9 @@ def create_new_room_pass(message):
 # ввод id для присоединения к комнате
 def join_new_room_id(message):
     global var_join_room_id, var_join_room_name, var_join_room_pass
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_start(message)
     else:
         room_info = db_functions.check_room_by_id(message)
@@ -212,7 +219,9 @@ def join_new_room_id(message):
 
 # ввод пароля и присоединение к комнате
 def join_new_room_pass(message):
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_start(message)
     else:
         if db_functions.check_pass(message, var_join_room_pass):
@@ -229,9 +238,10 @@ def join_new_room_pass(message):
 
 # обработчик кнопок информация о комнате
 def on_click_room_info(message):
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_start(message)
-
     elif message.text == '✏️ Изменить название комнаты':
         room = db_functions.get_user_room(message)
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -288,7 +298,9 @@ def on_click_room_info(message):
 
 
 def edit_room_name(message):
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_room_info(message)
     else:
         room = db_functions.get_user_room(message)
@@ -300,7 +312,9 @@ def edit_room_name(message):
 
 
 def leave_room(message):
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_room_info(message)
     elif message.text == '🚫 Да, я точно хочу покинуть комнату':
         room = db_functions.get_user_room(message)
@@ -313,17 +327,17 @@ def leave_room(message):
         bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
         bot.register_next_step_handler(message, leave_room)
 
-# todo: защита от спама
+
 def change_room_admin(message):
     global var_new_admin
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_room_info(message)
     else:
         room = db_functions.get_user_room(message)
         users = db_functions.get_users_by_room_id(room[0][0])
         for user in users:
-            # todo: для отладки
-            print(f'{user[1]} ({user[3]})')
             if message.text == f'{user[1]} ({user[3]})':
                 var_new_admin = user
                 break
@@ -335,7 +349,7 @@ def change_room_admin(message):
             markup.add(btn2)
             bot.send_message(message.chat.id,
                              f'Вы точно хотите передать роль админа комнаты <b>\"{room[0][2]}\"</b> '
-                             f'пользователю <a href="t.me/{user[3]}">{user[1]}</a>?',
+                             f'пользователю <a href="t.me/{var_new_admin[3]}">{var_new_admin[1]}</a>?',
                              parse_mode='html', reply_markup=markup, disable_web_page_preview=True)
             bot.register_next_step_handler(message, change_room_admin_accept)
         else:
@@ -347,15 +361,16 @@ def change_room_admin(message):
 
 
 def change_room_admin_accept(message):
-    if message.text == '⬅️ Назад':
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
         menu_room_info(message)
     elif message.text == '👑 Да, я точно хочу передать роль админа':
         room = db_functions.get_user_room(message)
-        user = var_new_admin
-        db_functions.change_room_admin(message, room[0][0], user)
+        db_functions.change_room_admin(message, room[0][0], var_new_admin)
         bot.send_message(message.chat.id,
                          f'Роль админа комнаты <b>\"{room[0][2]}\"</b> была передана '
-                         f'пользователю <a href="t.me/{user[3]}">{user[1]}</a>!',
+                         f'пользователю <a href="t.me/{var_new_admin[3]}">{var_new_admin[1]}</a>!',
                          parse_mode='html', disable_web_page_preview=True)
         menu_room_info(message)
     else:
@@ -365,7 +380,7 @@ def change_room_admin_accept(message):
 
 # тестовый обработчик
 @bot.message_handler(commands=['test'])
-def test(message):
+def command_test(message):
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
 
@@ -388,10 +403,16 @@ def test(message):
     conn.close()
 
 
+# обработка команды repair
+@bot.message_handler(commands=['repair'])
+def command_repair(message):
+    bot.send_message(message.chat.id, 'Бот был починен. <b>Отправьте любое сообщение, чтобы продолжить.</b>',
+                     parse_mode='html')
+
 # обработка остального текста
 @bot.message_handler()
 def other_messages(message):
-    command_start(message)
+    menu_start(message)
 
 print("Бот запущен...")
 bot.infinity_polling(skip_pending=True)
