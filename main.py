@@ -124,7 +124,7 @@ def menu_room_info(message):
         users = db_functions.get_users_by_room_id(room[0][0])
         users_list = ''
         for user in users:
-            users_list += f'<a href="t.me/{user[3]}">{user[1]}</a>\n'
+            users_list += f'[{user[1]}](t.me/{user[3]})\n'
 
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         # если пользователь админ комнаты
@@ -147,13 +147,14 @@ def menu_room_info(message):
             markup.add(btn1)
             markup.add(btn2)
 
-        bot.send_message(message.chat.id, f'<b>Комната \"{room[0][2]}\"</b>\n\n'
-                                          f'<b>ID:</b> {room[0][0]}\n'
-                                          f'<b>Админ комнаты:</b> <a href="t.me/{admin_username}">{admin_name}</a>\n'
-                                          f'<b>Участники:</b>\n'
+        bot.send_message(message.chat.id, f'*Комната \"{room[0][2]}\"*\n\n'
+                                          f'*ID:* `{room[0][0]}`\n'
+                                          f'_\(нажми на ID, чтобы скопировать\)_\n'
+                                          f'*Админ комнаты:* [{admin_name}](t.me/{admin_username})\n'
+                                          f'*Участники:*\n'
                                           f'{users_list}\n'
-                                          f'<b>Выбери команду из меню:</b>',
-                         parse_mode='html', reply_markup=markup, disable_web_page_preview=True)
+                                          f'*Выбери команду из меню:*',
+                         parse_mode='MarkdownV2', reply_markup=markup, disable_web_page_preview=True)
         bot.register_next_step_handler(message, on_click_room_info)
     else:
         bot.send_message(message.chat.id,
