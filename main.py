@@ -25,7 +25,8 @@ def command_start(message):
             for line in f.readlines():
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
-        bot.send_message(message.chat.id, "Давай знакомиться!\n<b>Введи своё имя:</b>", parse_mode='html')
+        bot.send_message(message.chat.id, "Давай знакомиться!\n<b>Введи своё имя "
+                                          "(это имя можно будет поменять):</b>", parse_mode='html')
         bot.register_next_step_handler(message, create_new_user)
 
 
@@ -66,12 +67,16 @@ def menu_start(message):
         btn4 = types.KeyboardButton('*Общие долги')
         markup.row(btn3, btn4)
         btn5 = types.KeyboardButton('*График обязанностей')
-        btn6 = types.KeyboardButton('Информация о текущей комнате')
-        markup.add(btn5)
-        markup.add(btn6)
+        btn6 = types.KeyboardButton('*Список покупок')
+        markup.row(btn5, btn6)
+        btn7 = types.KeyboardButton('⚙️ Настройки комнаты')
+        btn8 = types.KeyboardButton('👤 Личные настройки')
+        markup.row(btn7, btn8)
+        btn9 = types.KeyboardButton('🤖 О боте')
+        markup.row(btn9)
         bot.send_message(message.chat.id,
                          f'Привет, <b>{name}</b>!\n'
-                         f'Текущая комната: <b>"{room[0][2]}"</b>.\n'
+                         f'Текущая комната: <b>"{room[0][2]}"</b>\n\n'
                          f'<b>Выбери команду из меню:</b>',
                          parse_mode='html', reply_markup=markup)
     bot.register_next_step_handler(message, on_click_menu_start)
@@ -88,7 +93,8 @@ def on_click_menu_start(message):
             btn = types.KeyboardButton('⬅️ Назад')
             markup.add(btn)
             bot.send_message(message.chat.id, "Хорошо, давай создадим новую комнату!\n"
-                                              "<b>Введи название для комнаты:</b>",
+                                              "<b>Придумай название для комнаты "
+                                              "(это название можно будет поменять):</b>",
                              parse_mode='html', reply_markup=markup)
             bot.register_next_step_handler(message, create_new_room_name)
         else:
@@ -114,8 +120,15 @@ def on_click_menu_start(message):
                              parse_mode='html')
             menu_start(message)
 
-    elif message.text == 'Информация о текущей комнате':
+    elif message.text == '⚙️ Настройки комнаты':
         menu_room_info(message)
+
+    elif message.text == '🤖 О боте':
+        help_text = ''
+        with open("about.txt", "r", encoding='UTF8') as f:
+            for line in f.readlines():
+                help_text += line
+        bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
 
     elif message.text == '/test':
         command_test(message)
@@ -179,7 +192,8 @@ def create_new_room_name(message):
             menu_start(message)
         else:
             bot.send_message(message.chat.id, f"Прекрасное название для комнаты: \"{message.text}\".\n"
-                                              f"<b>Теперь придумай пароль:</b>", parse_mode='html')
+                                              f"<b>Теперь придумай пароль "
+                                              "(этот пароль можно будет поменять):</b>", parse_mode='html')
             var_create_room_name = message.text
             bot.register_next_step_handler(message, create_new_room_pass)
     else:
@@ -388,7 +402,8 @@ def change_room_admin(message):
             markup.add(btn2)
             bot.send_message(message.chat.id,
                              f'Ты точно хочешь передать роль админа комнаты <b>\"{room[0][2]}\"</b> '
-                             f'пользователю <a href="t.me/{var_new_admin[3]}">{var_new_admin[1]}</a>?',
+                             f'пользователю <a href="t.me/{var_new_admin[3]}">{var_new_admin[1]}</a>?\n'
+                             f'Это действие нельзя будет отменить!',
                              parse_mode='html', reply_markup=markup, disable_web_page_preview=True)
             bot.register_next_step_handler(message, change_room_admin_accept)
         else:
