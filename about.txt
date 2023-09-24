@@ -6,5 +6,6 @@
 <a href="https://t.me/DamirS16">Телеграм</a>
 <a href="https://github.com/Damir-Sayfullin">GitHub</a>
 <a href="https://github.com/Damir-Sayfullin/RoomFinanceManagerBot">GitHub этого проекта</a>
+<a href="https://damir-sayfullin.notion.site/ef550fdc66254cdd8fb2d7e447f5efab?v=cd4c27a0784c4ea9a30af493e0e2d14e&pvs=4">Менеджер задач</a>
 
 Если бот начал отвечать несколькими сообщениями сразу, напишите команду <u><b>/repair</b></u>.

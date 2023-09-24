@@ -119,8 +119,7 @@ def on_click_menu_start(message):
 def menu_room_info(message):
     room = db_functions.get_user_room(message)
     if room:
-        admin_name = db_functions.get_admin_name_by_room_id(room[0][0])
-        admin_username = db_functions.get_admin_username_by_room_id(room[0][0])
+        admin = db_functions.get_admin_by_room_id(room[0][0])
         users = db_functions.get_users_by_room_id(room[0][0])
         users_list = ''
         for user in users:
@@ -150,7 +149,7 @@ def menu_room_info(message):
         bot.send_message(message.chat.id, f'*Комната \"{room[0][2]}\"*\n\n'
                                           f'*ID:* `{room[0][0]}`\n'
                                           f'_\(нажми на ID, чтобы скопировать\)_\n'
-                                          f'*Админ комнаты:* [{admin_name}](t.me/{admin_username})\n'
+                                          f'*Админ комнаты:* [{admin[1]}](t.me/{admin[3]})\n'
                                           f'*Участники:*\n'
                                           f'{users_list}\n'
                                           f'*Выбери команду из меню:*',
@@ -410,10 +409,12 @@ def command_repair(message):
     bot.send_message(message.chat.id, 'Бот был починен. <b>Отправьте любое сообщение, чтобы продолжить.</b>',
                      parse_mode='html')
 
+
 # обработка остального текста
 @bot.message_handler()
 def other_messages(message):
     menu_start(message)
+
 
 print("Бот запущен...")
 bot.infinity_polling(skip_pending=True)

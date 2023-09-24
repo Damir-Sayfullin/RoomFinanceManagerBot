@@ -75,13 +75,28 @@ def create_new_room(message, room_name):
     """ Создание новой комнаты """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    # todo: проверка на наличие комнаты с таким же именем
     # хеширование пароля
     password = hashing_pass(message.text)
+    # получение списка существующих id
+    cur.execute("SELECT id FROM rooms")
+    rooms = cur.fetchall()
+    rooms_id_list = []
+    for room in rooms:
+        rooms_id_list.append(room[0])
+    # поиск свободного id
+    new_room_id = None
+    id_min, id_max = 100000, 1000000  # выбор диапазона id
+    while not new_room_id:
+        for id in range(id_min, id_max):
+            if id not in rooms_id_list:  # если найден свободный id
+                new_room_id = id
+                break
+        if not new_room_id:  # если в выбранном диапазоне не осталось свободных id, диапазон расширяется в 10 раз
+            id_min *= 10
+            id_max *= 10
     # создание комнаты с полученным названием
-    room_id = randint(100000, 999999)
     cur.execute("INSERT INTO rooms (id, admin_id, name, password) VALUES (?, ?, ?, ?)",
-                (room_id, message.from_user.id, room_name, password))
+                (new_room_id, message.from_user.id, room_name, password))
     conn.commit()
     # получение id комнаты
     cur.execute('SELECT id FROM rooms WHERE admin_id=? AND name=?', (message.from_user.id, room_name))
@@ -130,30 +145,17 @@ def check_pass(message, password):
     return True if true_key == key else False
 
 
-def get_admin_name_by_room_id(room_id):
+def get_admin_by_room_id(room_id):
     """ Поиск имени админа по id комнаты """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
     cur.execute("SELECT admin_id FROM rooms WHERE id=?", (room_id,))
     admin_id = cur.fetchall()
-    cur.execute("SELECT name FROM users WHERE id=?", (admin_id[0][0],))
-    admin_name = cur.fetchall()
+    cur.execute("SELECT * FROM users WHERE id=?", (admin_id[0][0],))
+    admin = cur.fetchall()
     cur.close()
     conn.close()
-    return admin_name[0][0]
-
-
-def get_admin_username_by_room_id(room_id):
-    """ Поиск username админа по id комнаты """
-    conn = sqlite3.connect('chatbot.db')
-    cur = conn.cursor()
-    cur.execute("SELECT admin_id FROM rooms WHERE id=?", (room_id,))
-    admin_id = cur.fetchall()
-    cur.execute("SELECT username FROM users WHERE id=?", (admin_id[0][0],))
-    admin_name = cur.fetchall()
-    cur.close()
-    conn.close()
-    return admin_name[0][0]
+    return admin[0]
 
 
 def get_users_by_room_id(room_id):
