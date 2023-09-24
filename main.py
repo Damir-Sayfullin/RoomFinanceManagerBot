@@ -226,7 +226,7 @@ def join_new_room_id(message):
             room_info = db_functions.check_room_by_id(message)
             if room_info:
                 bot.send_message(message.chat.id, f"Комната <b>\"{room_info[2]}\"</b> найдена!\n"
-                                                  f"<b>Введите пароль от комнаты:</b>", parse_mode='html')
+                                                  f"<b>Введи пароль от комнаты:</b>", parse_mode='html')
                 var_join_room_id = message.text
                 var_join_room_name = room_info[2]
                 var_join_room_pass = room_info[3]
@@ -253,7 +253,7 @@ def join_new_room_pass(message):
             if db_functions.check_pass(message, var_join_room_pass):
                 db_functions.join_user_on_room(message, var_join_room_id)
                 bot.send_message(message.chat.id,
-                                 f"Вы успешно присоединились к комнате <b>\"{var_join_room_name}\"</b>!",
+                                 f"Поздравляю! Ты теперь в комнате <b>\"{var_join_room_name}\"</b>!",
                                  parse_mode='html')
                 menu_start(message)
             else:
@@ -279,7 +279,7 @@ def on_click_room_info(message):
         btn = types.KeyboardButton('⬅️ Назад')
         markup.add(btn)
         bot.send_message(message.chat.id, f"Текущее название комнаты: <b>\"{room[0][2]}\"</b>.\n"
-                                          f"<b>Введите новое название комнаты:</b>",
+                                          f"<b>Введи новое название комнаты:</b>",
                          parse_mode='html', reply_markup=markup)
         bot.register_next_step_handler(message, edit_room_name)
 
@@ -291,17 +291,17 @@ def on_click_room_info(message):
             btn2 = types.KeyboardButton('⬅️ Назад')
             markup.add(btn1)
             markup.add(btn2)
-            bot.send_message(message.chat.id, f"Вы действительно хотите покинуть комнату <b>\"{room[0][2]}\"</b>?\n"
-                                              f"<b>Вы сможете присоединиться к этой комнате "
+            bot.send_message(message.chat.id, f"Ты действительно хочешь покинуть комнату <b>\"{room[0][2]}\"</b>?\n"
+                                              f"<b>Ты сможешь присоединиться к этой комнате "
                                               f"только зная его id и пароль!</b>",
                              parse_mode='html', reply_markup=markup)
             bot.register_next_step_handler(message, leave_room)
         else:
-            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Вы не можете покинуть комнату, "
-                                              f"пока являетесь его админом. "
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не можешь покинуть комнату, "
+                                              f"пока являешься его админом. "
                                               f"Чтобы покинуть комнату, "
-                                              f"передайте роль админа другому участнику комнаты "
-                                              f"или удалите комнату полностью.", parse_mode='html')
+                                              f"передай роль админа другому участнику комнаты "
+                                              f"или удали эту комнату полностью.", parse_mode='html')
             bot.register_next_step_handler(message, on_click_room_info)
     elif message.text == '👑 Передать роль админа':
         room = db_functions.get_user_room(message)
@@ -314,11 +314,11 @@ def on_click_room_info(message):
             btn1 = types.KeyboardButton('⬅️ Назад')
             markup.add(btn1)
             bot.send_message(message.chat.id,
-                             f"Выберите, кому вы хотите передать роль админа комнаты <b>\"{room[0][2]}\"</b>:",
+                             f"Выбери, кому ты хочешь передать роль админа комнаты <b>\"{room[0][2]}\"</b>:",
                              parse_mode='html', reply_markup=markup)
             bot.register_next_step_handler(message, change_room_admin)
         else:
-            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Вы не являетесь админом комнаты.", parse_mode='html')
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.", parse_mode='html')
             menu_room_info(message)
 
     # elif message.text == '🗑️ Удалить комнату':
@@ -444,7 +444,7 @@ def command_test(message):
 # обработка команды repair
 @bot.message_handler(commands=['repair'])
 def command_repair(message):
-    bot.send_message(message.chat.id, 'Бот был починен. <b>Отправьте любое сообщение, чтобы продолжить.</b>',
+    bot.send_message(message.chat.id, 'Бот был починен. <b>Отправь любое сообщение, чтобы продолжить.</b>',
                      parse_mode='html')
 
 
