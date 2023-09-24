@@ -5,14 +5,14 @@ import sqlite3
 from config import BOT_TOKEN
 import db_functions
 
-# bot = telebot.TeleBot('6216891307:AAGzqwiMXr5TkTBJifKyuAd06z7l8_R0uCI')
-bot = telebot.TeleBot(BOT_TOKEN, skip_pending=True, threaded=False)
+bot = telebot.TeleBot(BOT_TOKEN, skip_pending=True)
 
 var_create_room_name = None
 var_join_room_id = None
 var_join_room_pass = None
 var_join_room_name = None
 var_new_admin = None
+
 
 @bot.message_handler(commands=['start'])
 def command_start(message):
@@ -32,7 +32,8 @@ def command_start(message):
 # создание нового пользователя с введенным именем
 def create_new_user(message):
     db_functions.create_new_user(message)
-    bot.send_message(message.chat.id, f"Классное имя, <b>{message.text}</b>! Ты успешно зарегистрирован.", parse_mode='html')
+    bot.send_message(message.chat.id, f"Классное имя, <b>{message.text}</b>! Ты успешно зарегистрирован.",
+                     parse_mode='html')
     menu_start(message)
 
 
@@ -86,7 +87,8 @@ def on_click_menu_start(message):
             bot.register_next_step_handler(message, create_new_room_name)
         else:
             bot.send_message(message.chat.id,
-                             f'<b>Ошибка!</b> Покиньте текущую комнату <b>"{room[0][2]}"</b>, чтобы создать новую.',
+                             f'<b>Ошибка!</b> Покиньте текущую комнату <b>"{room[0][2]}"</b>, '
+                             f'чтобы создать новую.',
                              parse_mode='html')
             menu_start(message)
 
@@ -101,7 +103,8 @@ def on_click_menu_start(message):
             bot.register_next_step_handler(message, join_new_room_id)
         else:
             bot.send_message(message.chat.id,
-                             f'<b>Ошибка!</b> Покиньте текущую комнату <b>"{room[0][2]}"</b>, чтобы присоединиться к новой.',
+                             f'<b>Ошибка!</b> Покиньте текущую комнату <b>"{room[0][2]}"</b>, '
+                             f'чтобы присоединиться к новой.',
                              parse_mode='html')
             menu_start(message)
 
@@ -128,8 +131,6 @@ def menu_room_info(message):
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         # если пользователь админ комнаты
         if room[0][1] == message.from_user.id:
-        # todo: убрать
-        # if not room[0][1] == message.from_user.id:
             btn1 = types.KeyboardButton('✏️ Изменить название комнаты')
             btn2 = types.KeyboardButton('👑 Передать роль админа')
             btn3 = types.KeyboardButton('🚫 Покинуть комнату')
@@ -268,8 +269,9 @@ def on_click_room_info(message):
         else:
             bot.send_message(message.chat.id, f"<b>Ошибка!</b> Вы не можете покинуть комнату, "
                                               f"пока являетесь его админом. "
-                                              f"Передайте роль админа другому участнику комнаты, "
-                                              f"чтобы покинуть его или удалите комнату полностью.", parse_mode='html')
+                                              f"Чтобы покинуть комнату, "
+                                              f"передайте роль админа другому участнику комнаты "
+                                              f"или удалите комнату полностью.", parse_mode='html')
             bot.register_next_step_handler(message, on_click_room_info)
     elif message.text == '👑 Передать роль админа':
         room = db_functions.get_user_room(message)
@@ -277,7 +279,8 @@ def on_click_room_info(message):
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
             users = db_functions.get_users_by_room_id(room[0][0])
             for user in users:
-                markup.add(types.KeyboardButton(f'{user[1]} ({user[3]})'))
+                if user[0] != message.from_user.id:
+                    markup.add(types.KeyboardButton(f'{user[1]} ({user[3]})'))
             btn1 = types.KeyboardButton('⬅️ Назад')
             markup.add(btn1)
             bot.send_message(message.chat.id,
@@ -308,7 +311,7 @@ def edit_room_name(message):
         bot.send_message(message.chat.id,
                          f"Комната <b>\"{room[0][2]}\"</b> успешно переименована в <b>\"{message.text}\"</b>.\n",
                          parse_mode='html')
-        menu_start(message)
+        menu_room_info(message)
 
 
 def leave_room(message):
