@@ -27,7 +27,7 @@ def create_tables():
                 'id INTEGER PRIMARY KEY,'
                 'room_id INTEGER NOT NULL,'
                 'name VARCHAR(50) NOT NULL,'
-                'is_completed BOOLEAN NOT NULL DEFAULT false)')
+                'is_completed BOOLEAN NOT NULL DEFAULT 0)')
     conn.commit()
 
     # todo: другие таблицы
@@ -249,3 +249,73 @@ def get_shopping_list(room_id):
     cur.close()
     conn.close()
     return shopping_list
+
+
+def add_product(message, room_id):
+    """ Добавление продукта в список покупок """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    # получение списка существующих id
+    cur.execute("SELECT id FROM shopping_list")
+    products = cur.fetchall()
+    products_id_list = []
+    for product in products:
+        products_id_list.append(product[0])
+    # поиск свободного id
+    new_product_id = None
+    id_min, id_max = 1, 10  # выбор диапазона id
+    while not new_product_id:
+        for id in range(id_min, id_max):
+            if id not in products_id_list:  # если найден свободный id
+                new_product_id = id
+                break
+        if not new_product_id:  # если в выбранном диапазоне не осталось свободных id, диапазон расширяется в 10 раз
+            id_min *= 10
+            id_max *= 10
+    # добавление продукта
+    cur.execute("INSERT INTO shopping_list (id, room_id, name) VALUES (?, ?, ?)",
+                (new_product_id, room_id, message.text))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def delete_product(message, room_id):
+    """ Удаление продукта из списка покупок. Возвращает True при успешном удалении, иначе False """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    # проверка принадлежности покупки комнате
+    cur.execute("SELECT * FROM shopping_list WHERE room_id=?", (room_id,))
+    products = cur.fetchall()
+    for product in products:
+        if message.text == str(product[0]):
+            cur.execute("DELETE FROM shopping_list WHERE id=? ", message.text)
+            conn.commit()
+            cur.close()
+            conn.close()
+            return product[2]
+    cur.close()
+    conn.close()
+    return False
+
+
+def switch_product(message, room_id):
+    """ Смена статуса продукта в списке покупок. Возвращает список (название, статус) или None """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    # проверка принадлежности покупки комнате
+    cur.execute("SELECT * FROM shopping_list WHERE room_id=?", (room_id,))
+    products = cur.fetchall()
+    for product in products:
+        if message.text == str(product[0]):
+            if product[3]:
+                cur.execute("UPDATE shopping_list SET is_completed=0 WHERE id=?", (message.text,))
+                status = False
+            else:
+                cur.execute("UPDATE shopping_list SET is_completed=1 WHERE id=?", (message.text,))
+                status = True
+            conn.commit()
+            cur.close()
+            conn.close()
+            return product[2], status
+    return None

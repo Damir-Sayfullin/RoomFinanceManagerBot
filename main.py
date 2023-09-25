@@ -16,7 +16,7 @@ var_new_admin = None
 
 @bot.message_handler(commands=['start'])
 def command_start(message):
-    db_functions.create_tables()  # создание таблиц
+    db_functions.create_tables()
     if db_functions.get_user_name(message):
         menu_start(message)
     else:
@@ -38,9 +38,8 @@ def create_new_user(message):
                          parse_mode='html')
         menu_start(message)
     else:
-        bot.send_message(message.chat.id, f"В качестве имени может быть только <b>текст</b>!\n"
-                                          f"<b>Введи своё имя:</b>",
-                         parse_mode='html')
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве имени может быть только <b>текст</b>!\n"
+                                          f"<b>Введи своё имя:</b>", parse_mode='html')
         bot.register_next_step_handler(message, create_new_user)
 
 
@@ -99,8 +98,7 @@ def on_click_menu_start(message):
         else:
             bot.send_message(message.chat.id,
                              f'<b>Ошибка!</b> Покинь текущую комнату <b>"{room[0][2]}"</b>, '
-                             f'чтобы создать новую.',
-                             parse_mode='html')
+                             f'чтобы создать новую.', parse_mode='html')
             menu_start(message)
 
     elif message.text == '🔑 Присоединиться к существующей':
@@ -115,8 +113,7 @@ def on_click_menu_start(message):
         else:
             bot.send_message(message.chat.id,
                              f'<b>Ошибка!</b> Покинь текущую комнату <b>"{room[0][2]}"</b>, '
-                             f'чтобы присоединиться к новой.',
-                             parse_mode='html')
+                             f'чтобы присоединиться к новой.', parse_mode='html')
             menu_start(message)
 
     elif message.text == '⚙️ Настройки комнаты':
@@ -139,8 +136,109 @@ def on_click_menu_start(message):
     elif message.text == '/test':
         command_test(message)
     else:
-        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                             parse_mode='html')
         bot.register_next_step_handler(message, on_click_menu_start)
+
+
+# ввод имени для создания комнаты
+def create_new_room_name(message):
+    if message.content_type == 'text':
+        global var_create_room_name
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_start(message)
+        else:
+            bot.send_message(message.chat.id, f"Прекрасное название для комнаты: \"{message.text}\".\n"
+                                              f"<b>Теперь придумай пароль "
+                                              "(этот пароль можно будет поменять):</b>", parse_mode='html')
+            var_create_room_name = message.text
+            bot.register_next_step_handler(message, create_new_room_pass)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве имени комнаты может быть только <b>текст</b>!\n"
+                                          f"<b>Введи название комнаты:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, create_new_room_name)
+
+
+# ввод пароля и создание комнаты
+def create_new_room_pass(message):
+    global var_create_room_name
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_start(message)
+        else:
+            if len(message.text) >= 6:
+                db_functions.create_new_room(message, var_create_room_name)
+                bot.send_message(message.chat.id,
+                                 f"Комната с названием <b>\"{var_create_room_name}\"</b> успешно создана!",
+                                 parse_mode='html')
+                var_create_room_name = None
+                menu_start(message)
+            else:
+                bot.send_message(message.chat.id, f"<b>Ошибка!</b> Пароль не может быть короче 6 символов!\n"
+                                                  f"<b>Придумай другой пароль:</b>", parse_mode='html')
+                bot.register_next_step_handler(message, create_new_room_pass)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве пароля может быть только <b>текст</b>!\n"
+                                          f"<b>Придумай пароль:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, create_new_room_pass)
+
+
+# ввод id для присоединения к комнате
+def join_new_room_id(message):
+    if message.content_type == 'text':
+        global var_join_room_id, var_join_room_name, var_join_room_pass
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_start(message)
+        else:
+            room_info = db_functions.check_room_by_id(message)
+            if room_info:
+                bot.send_message(message.chat.id, f"Комната <b>\"{room_info[2]}\"</b> найдена!\n"
+                                                  f"<b>Введи пароль от комнаты:</b>", parse_mode='html')
+                var_join_room_id = message.text
+                var_join_room_name = room_info[2]
+                var_join_room_pass = room_info[3]
+                bot.register_next_step_handler(message, join_new_room_pass)
+            else:
+                bot.send_message(message.chat.id, f"<b>Ошибка!</b> "
+                                                  f"Комната с <b>id={message.text}</b> не найдена.\n"
+                                                  f"<b>Введи id для существующей комнаты:</b>", parse_mode='html')
+                bot.register_next_step_handler(message, join_new_room_id)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве id может быть только <b>число</b>!\n"
+                                          f"<b>Введи id комнаты:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, join_new_room_id)
+
+
+# ввод пароля и присоединение к комнате
+def join_new_room_pass(message):
+    global var_join_room_id, var_join_room_name, var_join_room_pass
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_start(message)
+        else:
+            if db_functions.check_pass(message, var_join_room_pass):
+                db_functions.join_user_on_room(message, var_join_room_id)
+                bot.send_message(message.chat.id,
+                                 f"Поздравляю! Ты теперь в комнате <b>\"{var_join_room_name}\"</b>!",
+                                 parse_mode='html')
+                var_join_room_id = var_join_room_name = var_join_room_pass = None
+                menu_start(message)
+            else:
+                bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неверный пароль!\n"
+                                                  f"<b>Попробуй ввести пароль еще раз:</b>", parse_mode='html')
+                bot.register_next_step_handler(message, join_new_room_pass)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве пароля может быть только <b>текст</b>!\n"
+                                          f"<b>Попробуй ввести пароль еще раз:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, join_new_room_pass)
 
 
 # меню информации о комнате
@@ -189,105 +287,6 @@ def menu_room_info(message):
         bot.register_next_step_handler(message, on_click_menu_start)
 
 
-# ввод имени для создания комнаты
-def create_new_room_name(message):
-    if message.content_type == 'text':
-        global var_create_room_name
-        if message.text == '/repair':
-            command_repair(message)
-        elif message.text == '⬅️ Назад':
-            menu_start(message)
-        else:
-            bot.send_message(message.chat.id, f"Прекрасное название для комнаты: \"{message.text}\".\n"
-                                              f"<b>Теперь придумай пароль "
-                                              "(этот пароль можно будет поменять):</b>", parse_mode='html')
-            var_create_room_name = message.text
-            bot.register_next_step_handler(message, create_new_room_pass)
-    else:
-        bot.send_message(message.chat.id, f"В качестве имени комнаты может быть только <b>текст</b>!\n"
-                                          f"<b>Введи название комнаты:</b>",
-                         parse_mode='html')
-        bot.register_next_step_handler(message, create_new_room_name)
-
-
-# ввод пароля и создание комнаты
-def create_new_room_pass(message):
-    if message.content_type == 'text':
-        if message.text == '/repair':
-            command_repair(message)
-        elif message.text == '⬅️ Назад':
-            menu_start(message)
-        else:
-            if len(message.text) >= 6:
-                db_functions.create_new_room(message, var_create_room_name)
-                bot.send_message(message.chat.id,
-                                 f"Комната с названием <b>\"{var_create_room_name}\"</b> успешно создана!",
-                                 parse_mode='html')
-                menu_start(message)
-            else:
-                bot.send_message(message.chat.id, f"Пароль не может быть короче 6 символов!\n"
-                                                  f"<b>Придумай другой пароль:</b>", parse_mode='html')
-                bot.register_next_step_handler(message, create_new_room_pass)
-    else:
-        bot.send_message(message.chat.id, f"В качестве пароля может быть только <b>текст</b>!\n"
-                                          f"<b>Придумай пароль:</b>",
-                         parse_mode='html')
-        bot.register_next_step_handler(message, create_new_room_pass)
-
-
-# ввод id для присоединения к комнате
-def join_new_room_id(message):
-    if message.content_type == 'text':
-        global var_join_room_id, var_join_room_name, var_join_room_pass
-        if message.text == '/repair':
-            command_repair(message)
-        elif message.text == '⬅️ Назад':
-            menu_start(message)
-        else:
-            room_info = db_functions.check_room_by_id(message)
-            if room_info:
-                bot.send_message(message.chat.id, f"Комната <b>\"{room_info[2]}\"</b> найдена!\n"
-                                                  f"<b>Введи пароль от комнаты:</b>", parse_mode='html')
-                var_join_room_id = message.text
-                var_join_room_name = room_info[2]
-                var_join_room_pass = room_info[3]
-                bot.register_next_step_handler(message, join_new_room_pass)
-            else:
-                bot.send_message(message.chat.id, f"Комната с <b>id={message.text}</b> не найдена.\n"
-                                                  f"<b>Введи id для существующей комнаты:</b>", parse_mode='html')
-                bot.register_next_step_handler(message, join_new_room_id)
-    else:
-        bot.send_message(message.chat.id, f"В качестве id может быть только <b>текст</b>!\n"
-                                          f"<b>Введи id комнаты:</b>",
-                         parse_mode='html')
-        bot.register_next_step_handler(message, join_new_room_id)
-
-
-# ввод пароля и присоединение к комнате
-def join_new_room_pass(message):
-    if message.content_type == 'text':
-        if message.text == '/repair':
-            command_repair(message)
-        elif message.text == '⬅️ Назад':
-            menu_start(message)
-        else:
-            if db_functions.check_pass(message, var_join_room_pass):
-                db_functions.join_user_on_room(message, var_join_room_id)
-                bot.send_message(message.chat.id,
-                                 f"Поздравляю! Ты теперь в комнате <b>\"{var_join_room_name}\"</b>!",
-                                 parse_mode='html')
-                menu_start(message)
-            else:
-                bot.send_message(message.chat.id, f"Неверный пароль!\n"
-                                                  f"<b>Попробуй ввести пароль еще раз:</b>", parse_mode='html')
-                bot.register_next_step_handler(message, join_new_room_pass)
-    else:
-        bot.send_message(message.chat.id, f"В качестве пароля может быть только <b>текст</b>!\n"
-                                          f"<b>Попробуй ввести пароль еще раз:</b>",
-                         parse_mode='html')
-        bot.register_next_step_handler(message, join_new_room_pass)
-
-
 # обработчик кнопок информация о комнате
 def on_click_menu_room_info(message):
     if message.text == '/repair':
@@ -317,7 +316,8 @@ def on_click_menu_room_info(message):
             btn2 = types.KeyboardButton('⬅️ Назад')
             markup.add(btn1)
             markup.add(btn2)
-            bot.send_message(message.chat.id, f"Ты действительно хочешь покинуть комнату <b>\"{room[0][2]}\"</b>?\n"
+            bot.send_message(message.chat.id, f"Ты действительно хочешь "
+                                              f"покинуть комнату <b>\"{room[0][2]}\"</b>?\n"
                                               f"<b>Ты сможешь присоединиться к этой комнате "
                                               f"только зная его id и пароль!</b>",
                              parse_mode='html', reply_markup=markup)
@@ -329,6 +329,7 @@ def on_click_menu_room_info(message):
                                               f"передай роль админа другому участнику комнаты "
                                               f"или удали эту комнату полностью.", parse_mode='html')
             bot.register_next_step_handler(message, on_click_menu_room_info)
+
     elif message.text == '👑 Передать роль админа':
         room = db_functions.get_user_room(message)
         if room[0][1] == message.from_user.id:
@@ -344,7 +345,8 @@ def on_click_menu_room_info(message):
                              parse_mode='html', reply_markup=markup)
             bot.register_next_step_handler(message, change_room_admin)
         else:
-            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.", parse_mode='html')
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.",
+                             parse_mode='html')
             bot.register_next_step_handler(message, on_click_menu_room_info)
 
     elif message.text == '🗑️ Удалить комнату':
@@ -362,7 +364,8 @@ def on_click_menu_room_info(message):
                              parse_mode='html', reply_markup=markup)
             bot.register_next_step_handler(message, delete_room)
         else:
-            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.", parse_mode='html')
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.",
+                             parse_mode='html')
             bot.register_next_step_handler(message, on_click_menu_room_info)
 
     elif message.text == '🔐 Изменить пароль от комнаты':
@@ -376,11 +379,13 @@ def on_click_menu_room_info(message):
                              parse_mode='html', reply_markup=markup)
             bot.register_next_step_handler(message, edit_room_pass)
         else:
-            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.", parse_mode='html')
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.",
+                             parse_mode='html')
             bot.register_next_step_handler(message, on_click_menu_room_info)
 
     else:
-        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                         parse_mode='html')
         bot.register_next_step_handler(message, on_click_menu_room_info)
 
 
@@ -394,14 +399,13 @@ def edit_room_name(message):
             room = db_functions.get_user_room(message)
             db_functions.edit_room_name(message, room[0][0])
             bot.send_message(message.chat.id,
-                             f"Комната <b>\"{room[0][2]}\"</b> успешно переименована в <b>\"{message.text}\"</b>.\n",
-                             parse_mode='html')
+                             f"Комната <b>\"{room[0][2]}\"</b> успешно переименована "
+                             f"в <b>\"{message.text}\"</b>.\n", parse_mode='html')
             menu_room_info(message)
     else:
-        bot.send_message(message.chat.id, f"В качестве имени комнаты может быть только <b>текст</b>!\n"
-                                          f"<b>Введи новое название комнаты:</b>",
-                         parse_mode='html',
-                         )
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве имени комнаты "
+                                          f"может быть только <b>текст</b>!\n"
+                                          f"<b>Введи новое название комнаты:</b>", parse_mode='html')
         bot.register_next_step_handler(message, edit_room_name)
 
 
@@ -420,12 +424,13 @@ def edit_room_pass(message):
                                  parse_mode='html')
                 menu_room_info(message)
             else:
-                bot.send_message(message.chat.id, f"Пароль не может быть короче 6 символов!\n"
+                bot.send_message(message.chat.id, f"<b>Ошибка!</b> Пароль не может быть короче 6 символов!\n"
                                                   f"<b>Придумай другой пароль:</b>", parse_mode='html')
                 bot.register_next_step_handler(message, edit_room_pass)
     else:
-        bot.send_message(message.chat.id, f"В качестве пароля от комнаты может быть только <b>текст</b>!\n"
-                                          f"<b>Введи новый пароль от комнаты:</b>", parse_mode='html')
+        bot.send_message(message.chat.id,
+                         f"<b>Ошибка!</b> В качестве пароля от комнаты может быть только <b>текст</b>!\n"
+                         f"<b>Введи новый пароль от комнаты:</b>", parse_mode='html')
         bot.register_next_step_handler(message, edit_room_pass)
 
 
@@ -438,11 +443,11 @@ def leave_room(message):
         room = db_functions.get_user_room(message)
         db_functions.leave_room(message)
         bot.send_message(message.chat.id,
-                         f"Ты покинул комнату <b>\"{room[0][2]}\"</b>!",
-                         parse_mode='html')
+                         f"Ты покинул комнату <b>\"{room[0][2]}\"</b>!", parse_mode='html')
         menu_start(message)
     else:
-        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                         parse_mode='html')
         bot.register_next_step_handler(message, leave_room)
 
 
@@ -475,12 +480,12 @@ def change_room_admin(message):
             bot.register_next_step_handler(message, change_room_admin_accept)
         else:
             bot.send_message(message.chat.id, f"<b>Ошибка!</b> Пользователь не найден!\n"
-                                              f"<b>Выбери пользователя из меню:</b>",
-                             parse_mode='html')
+                                              f"<b>Выбери пользователя из меню:</b>", parse_mode='html')
             bot.register_next_step_handler(message, change_room_admin)
 
 
 def change_room_admin_accept(message):
+    global var_new_admin
     if message.text == '/repair':
         command_repair(message)
     elif message.text == '⬅️ Назад':
@@ -492,9 +497,11 @@ def change_room_admin_accept(message):
                          f'Роль админа комнаты <b>\"{room[0][2]}\"</b> была передана '
                          f'пользователю <a href="t.me/{var_new_admin[3]}">{var_new_admin[1]}</a>!',
                          parse_mode='html', disable_web_page_preview=True)
+        var_new_admin = None
         menu_room_info(message)
     else:
-        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                         parse_mode='html')
         bot.register_next_step_handler(message, change_room_admin_accept)
 
 
@@ -507,11 +514,11 @@ def delete_room(message):
         room = db_functions.get_user_room(message)
         db_functions.delete_room(message, room[0][0])
         bot.send_message(message.chat.id,
-                         f"Комната <b>\"{room[0][2]}\"</b> была успешно удалена!",
-                         parse_mode='html')
+                         f"Комната <b>\"{room[0][2]}\"</b> была полностью удалена!", parse_mode='html')
         menu_start(message)
     else:
-        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                         parse_mode='html')
         bot.register_next_step_handler(message, delete_room)
 
 
@@ -549,11 +556,11 @@ def on_click_menu_my_settings(message):
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         btn = types.KeyboardButton('⬅️ Назад')
         markup.add(btn)
-        bot.send_message(message.chat.id, f'<b>Введи новое имя:</b>',
-                         parse_mode='html', reply_markup=markup)
+        bot.send_message(message.chat.id, f'<b>Введи новое имя:</b>', parse_mode='html', reply_markup=markup)
         bot.register_next_step_handler(message, edit_name)
     else:
-        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                         parse_mode='html')
         bot.register_next_step_handler(message, on_click_menu_my_settings)
 
 
@@ -571,10 +578,8 @@ def edit_name(message):
                              parse_mode='html')
             menu_my_settings(message)
     else:
-        bot.send_message(message.chat.id, f"В качестве имени может быть только <b>текст</b>!\n"
-                                          f"<b>Введи новое имя:</b>",
-                         parse_mode='html',
-                         )
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве имени может быть только <b>текст</b>!\n"
+                                          f"<b>Введи новое имя:</b>", parse_mode='html')
         bot.register_next_step_handler(message, edit_name)
 
 
@@ -591,21 +596,21 @@ def menu_shopping_list(message):
         markup.row(btn4)
         # получение списка продуктов
         shopping_list = db_functions.get_shopping_list(room[0][0])
-        output_shopping_list = ''
+        # todo: проверка наличия продуктов в списке
+        output_shopping_list = '<u><b>Список покупок</b></u>\n\n'
         for buy in shopping_list:
-            output_shopping_list += f'🆔 {buy[0]} 🏷️ {buy[2]} '
-            if buy[3] == 'true':
+            output_shopping_list += f'🆔 {buy[0]} 📦 {buy[2]} '
+            if buy[3] == 1:
                 output_shopping_list += '✅\n'
             else:
                 output_shopping_list += '❌\n'
-        bot.send_message(message.chat.id, f'{output_shopping_list}',
-                         parse_mode='html', reply_markup=markup)
+        output_shopping_list += '\n<b>Выбери команду из меню:</b>'
+        bot.send_message(message.chat.id, f'{output_shopping_list}', parse_mode='html', reply_markup=markup)
         bot.register_next_step_handler(message, on_click_menu_shopping_list)
     else:
         bot.send_message(message.chat.id,
                          f'<b>Ошибка!</b> Пользоваться списком покупок можно только внутри комнаты. '
-                         f'Создай новую или присоединись к существующей.',
-                         parse_mode='html')
+                         f'Создай новую или присоединись к существующей.', parse_mode='html')
         bot.register_next_step_handler(message, on_click_menu_start)
 
 
@@ -614,9 +619,114 @@ def on_click_menu_shopping_list(message):
         command_repair(message)
     elif message.text == '⬅️ Назад':
         menu_start(message)
+
+    elif message.text == '📝 Добавить продукт':
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn = types.KeyboardButton('⬅️ Назад')
+        markup.add(btn)
+        bot.send_message(message.chat.id, f"Что нужно купить?\n"
+                                          f"<b>Введи название продукта:</b>", parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(message, add_product)
+
+    elif message.text == '🗑️ Удалить продукт':
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn = types.KeyboardButton('⬅️ Назад')
+        markup.add(btn)
+        bot.send_message(message.chat.id, f"Какой продукт нужно удалить из списка?\n"
+                                          f"<b>Введи ID продукта:</b>", parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(message, delete_product)
+
+    elif message.text == '🔄 Переключить статус':
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn = types.KeyboardButton('⬅️ Назад')
+        markup.add(btn)
+        bot.send_message(message.chat.id, f"У какого продукта нужно переключить статус?\n"
+                                          f"<b>Введи ID продукта:</b>", parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(message, switch_product)
+
     else:
-        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                         parse_mode='html')
         bot.register_next_step_handler(message, on_click_menu_shopping_list)
+
+
+def add_product(message):
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_shopping_list(message)
+        else:
+            room = db_functions.get_user_room(message)
+            db_functions.add_product(message, room[0][0])
+            bot.send_message(message.chat.id,
+                             f"Продукт <b>\"{message.text}\"</b> добавлен "
+                             f"в список покупок комнаты <b>\"{room[0][2]}\"</b>.", parse_mode='html')
+            menu_shopping_list(message)
+    else:
+        bot.send_message(message.chat.id,
+                         f"<b>Ошибка!</b> В качестве названия продукта может быть только <b>текст</b>!\n"
+                         f"<b>Введи название продукта:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, add_product)
+
+
+def delete_product(message):
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_shopping_list(message)
+        else:
+            room = db_functions.get_user_room(message)
+            deleted_product = db_functions.delete_product(message, room[0][0])
+            if deleted_product:
+                bot.send_message(message.chat.id,
+                                 f"Продукт <b>\"{deleted_product}\"</b> был удален "
+                                 f"из списка покупок комнаты <b>\"{room[0][2]}\"</b>.", parse_mode='html')
+                menu_shopping_list(message)
+            else:
+                bot.send_message(message.chat.id,
+                                 f"<b>Ошибка!</b> Продукт c <b>ID={message.text}</b> не был найден "
+                                 f"в списке покупок комнаты <b>\"{room[0][2]}\"</b>.\n"
+                                 f"<b>Введи ID продукта еще раз:</b>", parse_mode='html')
+                bot.register_next_step_handler(message, delete_product)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID продукта "
+                                          f"может быть только <b>число</b>!\n"
+                                          f"<b>Введи ID продукта:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, delete_product)
+
+
+def switch_product(message):
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_shopping_list(message)
+        else:
+            room = db_functions.get_user_room(message)
+            switch_result = db_functions.switch_product(message, room[0][0])
+            if switch_result:
+                if switch_result[1]:
+                    bot.send_message(message.chat.id,
+                                     f"Продукт <b>\"{switch_result[0]}\"</b> был отмечен как <b>купленный</b>.",
+                                     parse_mode='html')
+                else:
+                    bot.send_message(message.chat.id,
+                                     f"Продукт <b>\"{switch_result[0]}\"</b> был отмечен как <b>не купленный</b>.",
+                                     parse_mode='html')
+                menu_shopping_list(message)
+            else:
+                bot.send_message(message.chat.id,
+                                 f"<b>Ошибка!</b> Продукт c <b>ID={message.text}</b> не был найден "
+                                 f"в списке покупок комнаты <b>\"{room[0][2]}\"</b>.\n"
+                                 f"<b>Введи ID продукта еще раз:</b>", parse_mode='html')
+                bot.register_next_step_handler(message, switch_product)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID продукта "
+                                          f"может быть только <b>число</b>!\n"
+                                          f"<b>Введи ID продукта:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, switch_product)
 
 
 # тестовый обработчик
