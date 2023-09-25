@@ -153,7 +153,7 @@ def menu_room_info(message):
             btn1 = types.KeyboardButton('✏️ Изменить название комнаты')
             btn2 = types.KeyboardButton('👑 Передать роль админа')
             btn3 = types.KeyboardButton('🚫 Покинуть комнату')
-            btn4 = types.KeyboardButton('*🗑️ Удалить комнату')
+            btn4 = types.KeyboardButton('🗑️ Удалить комнату')
             btn5 = types.KeyboardButton('⬅️ Назад')
             markup.add(btn1)
             markup.add(btn2)
@@ -174,7 +174,7 @@ def menu_room_info(message):
                                           f'{users_list}\n'
                                           f'*Выбери команду из меню:*',
                          parse_mode='MarkdownV2', reply_markup=markup, disable_web_page_preview=True)
-        bot.register_next_step_handler(message, on_click_room_info)
+        bot.register_next_step_handler(message, on_click_menu_room_info)
     else:
         bot.send_message(message.chat.id,
                          f'<b>Ошибка!</b> У тебя нет комнаты. Создай новую или присоединись к существующей.',
@@ -282,20 +282,25 @@ def join_new_room_pass(message):
 
 
 # обработчик кнопок информация о комнате
-def on_click_room_info(message):
+def on_click_menu_room_info(message):
     if message.text == '/repair':
         command_repair(message)
     elif message.text == '⬅️ Назад':
         menu_start(message)
     elif message.text == '✏️ Изменить название комнаты':
         room = db_functions.get_user_room(message)
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        btn = types.KeyboardButton('⬅️ Назад')
-        markup.add(btn)
-        bot.send_message(message.chat.id, f"Текущее название комнаты: <b>\"{room[0][2]}\"</b>.\n"
-                                          f"<b>Введи новое название комнаты:</b>",
-                         parse_mode='html', reply_markup=markup)
-        bot.register_next_step_handler(message, edit_room_name)
+        if room[0][1] == message.from_user.id:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn)
+            bot.send_message(message.chat.id, f"Текущее название комнаты: <b>\"{room[0][2]}\"</b>.\n"
+                                              f"<b>Введи новое название комнаты:</b>",
+                             parse_mode='html', reply_markup=markup)
+            bot.register_next_step_handler(message, edit_room_name)
+        else:
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.",
+                             parse_mode='html')
+            bot.register_next_step_handler(message, on_click_menu_room_info)
 
     elif message.text == '🚫 Покинуть комнату':
         room = db_functions.get_user_room(message)
@@ -316,7 +321,7 @@ def on_click_room_info(message):
                                               f"Чтобы покинуть комнату, "
                                               f"передай роль админа другому участнику комнаты "
                                               f"или удали эту комнату полностью.", parse_mode='html')
-            bot.register_next_step_handler(message, on_click_room_info)
+            bot.register_next_step_handler(message, on_click_menu_room_info)
     elif message.text == '👑 Передать роль админа':
         room = db_functions.get_user_room(message)
         if room[0][1] == message.from_user.id:
@@ -333,14 +338,29 @@ def on_click_room_info(message):
             bot.register_next_step_handler(message, change_room_admin)
         else:
             bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.", parse_mode='html')
-            menu_room_info(message)
+            bot.register_next_step_handler(message, on_click_menu_room_info)
 
-    # elif message.text == '🗑️ Удалить комнату':
-    #     pass
+    elif message.text == '🗑️ Удалить комнату':
+        room = db_functions.get_user_room(message)
+        if room[0][1] == message.from_user.id:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn1 = types.KeyboardButton('🗑️ Да, я точно хочу удалить комнату')
+            btn2 = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn1)
+            markup.add(btn2)
+            bot.send_message(message.chat.id, f"Ты действительно хочешь удалить комнату <b>\"{room[0][2]}\"</b>?\n"
+                                              f"<b>Это действие нельзя будет отменить. "
+                                              f"Все участники будут выгнаны и все данные о комнате, "
+                                              f"включая покупки и долги будут удалены!</b>",
+                             parse_mode='html', reply_markup=markup)
+            bot.register_next_step_handler(message, delete_room)
+        else:
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.", parse_mode='html')
+            bot.register_next_step_handler(message, on_click_menu_room_info)
 
     else:
         bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
-        bot.register_next_step_handler(message, on_click_room_info)
+        bot.register_next_step_handler(message, on_click_menu_room_info)
 
 
 def edit_room_name(message):
@@ -429,6 +449,23 @@ def change_room_admin_accept(message):
     else:
         bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
         bot.register_next_step_handler(message, change_room_admin_accept)
+
+
+def delete_room(message):
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
+        menu_room_info(message)
+    elif message.text == '🗑️ Да, я точно хочу удалить комнату':
+        room = db_functions.get_user_room(message)
+        db_functions.delete_room(message, room[0][0])
+        bot.send_message(message.chat.id,
+                         f"Комната <b>\"{room[0][2]}\"</b> была успешно удалена!",
+                         parse_mode='html')
+        menu_start(message)
+    else:
+        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.register_next_step_handler(message, delete_room)
 
 
 # тестовый обработчик

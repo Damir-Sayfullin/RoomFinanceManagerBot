@@ -179,7 +179,7 @@ def edit_room_name(message, room_id):
     conn.close()
 
 def leave_room(message):
-    """ Удаление комнаты у пользователя по его id """
+    """ Покидание комнаты по его id """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
     cur.execute("UPDATE users SET room_id=? WHERE id=?", (None, message.from_user.id))
@@ -194,5 +194,18 @@ def change_room_admin(message, room_id, new_admin_user):
     cur = conn.cursor()
     cur.execute("UPDATE rooms SET admin_id=? WHERE id=?", (new_admin_user[0], room_id))
     conn.commit()
+    cur.close()
+    conn.close()
+
+
+def delete_room(message, room_id):
+    """ Удаление комнаты по его id """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET room_id=? WHERE room_id=?", (None, room_id))
+    conn.commit()
+    cur.execute("DELETE FROM rooms WHERE id=?", (None, room_id))
+    conn.commit()
+    # todo: удалить данные и с других таблиц
     cur.close()
     conn.close()
