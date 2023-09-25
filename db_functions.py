@@ -23,6 +23,13 @@ def create_tables():
                 'password VARCHAR(50) NOT NULL)')
     conn.commit()
 
+    cur.execute('CREATE TABLE IF NOT EXISTS shopping_list ('
+                'id INTEGER PRIMARY KEY,'
+                'room_id INTEGER NOT NULL,'
+                'name VARCHAR(50) NOT NULL,'
+                'is_completed BOOLEAN NOT NULL DEFAULT false)')
+    conn.commit()
+
     # todo: другие таблицы
 
     cur.close()
@@ -41,7 +48,7 @@ def create_new_user(message):
 
 
 def get_user_name(message):
-    """ Поиск имени пользователя по ID. Возвращает имя пользователя или False."""
+    """ Поиск имени пользователя. Возвращает имя пользователя или False."""
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
     cur.execute("SELECT * FROM users  WHERE id=?", (message.from_user.id,))
@@ -133,8 +140,8 @@ def hashing_pass(password):
     """ Хеширование пароля. Возвращает соленый ключ """
     salt = os.urandom(32)
     key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 10000)
-    storage = salt + key
-    return storage
+    new_password = salt + key
+    return new_password
 
 
 def check_pass(message, password):
@@ -159,7 +166,7 @@ def get_admin_by_room_id(room_id):
 
 
 def get_users_by_room_id(room_id):
-    """ Поиск участников комнаты по id комнаты """
+    """ Получение участников комнаты по id комнаты """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
     cur.execute("SELECT * FROM users WHERE room_id=?", (room_id,))
@@ -177,6 +184,18 @@ def edit_room_name(message, room_id):
     conn.commit()
     cur.close()
     conn.close()
+
+
+def edit_room_pass(message, room_id):
+    """ Редактирование пароля от комнаты по его id """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    new_password = hashing_pass(message.text)
+    cur.execute("UPDATE rooms SET password=? WHERE id=?", (new_password, room_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
 
 def leave_room(message):
     """ Покидание комнаты по его id """
@@ -204,8 +223,29 @@ def delete_room(message, room_id):
     cur = conn.cursor()
     cur.execute("UPDATE users SET room_id=? WHERE room_id=?", (None, room_id))
     conn.commit()
-    cur.execute("DELETE FROM rooms WHERE id=?", (None, room_id))
+    cur.execute("DELETE FROM rooms WHERE id=?", (room_id,))
     conn.commit()
     # todo: удалить данные и с других таблиц
     cur.close()
     conn.close()
+
+
+def edit_name(message):
+    """ Редактирование имени """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET name=? WHERE id=?", (message.text, message.from_user.id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def get_shopping_list(room_id):
+    """ Получение списка покупок по id комнаты """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM shopping_list WHERE room_id=?", (room_id,))
+    shopping_list = cur.fetchall()
+    cur.close()
+    conn.close()
+    return shopping_list

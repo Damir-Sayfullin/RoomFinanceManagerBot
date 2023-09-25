@@ -38,7 +38,7 @@ def create_new_user(message):
                          parse_mode='html')
         menu_start(message)
     else:
-        bot.send_message(message.chat.id, f"В качестве имени может быть только <b>текст</b>!"
+        bot.send_message(message.chat.id, f"В качестве имени может быть только <b>текст</b>!\n"
                                           f"<b>Введи своё имя:</b>",
                          parse_mode='html')
         bot.register_next_step_handler(message, create_new_user)
@@ -50,35 +50,34 @@ def menu_start(message):
     room = db_functions.get_user_room(message)
     if not room:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        btn1 = types.KeyboardButton('Создать новую комнату')
-        btn2 = types.KeyboardButton('Присоединиться к существующей')
-        markup.add(btn1, btn2)
-        bot.send_message(message.chat.id,
-                         f"Привет, <b>{name}</b>!\n"
-                         f"Сейчас ты не состоишь ни в одной комнате.\n\n"
-                         f"<b>Выбери команду из меню:</b>",
-                         parse_mode='html', reply_markup=markup)
+        btn1 = types.KeyboardButton('🔓 Создать новую комнату')
+        btn2 = types.KeyboardButton('🔑 Присоединиться к существующей')
+        markup.row(btn1, btn2)
+        btn3 = types.KeyboardButton('👤 Личные настройки')
+        markup.row(btn3)
+        btn4 = types.KeyboardButton('🤖 О боте')
+        markup.row(btn4)
     else:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        btn1 = types.KeyboardButton('*Добавить покупку')
-        btn2 = types.KeyboardButton('*Подтвердить покупку')
+        btn1 = types.KeyboardButton('*Добавить общую покупку')
+        btn2 = types.KeyboardButton('*Подтвердить общую покупку')
         markup.row(btn1, btn2)
         btn3 = types.KeyboardButton('*Мои долги')
         btn4 = types.KeyboardButton('*Общие долги')
         markup.row(btn3, btn4)
         btn5 = types.KeyboardButton('*График обязанностей')
-        btn6 = types.KeyboardButton('*Список покупок')
+        btn6 = types.KeyboardButton('🛒 Список покупок')
         markup.row(btn5, btn6)
-        btn7 = types.KeyboardButton('⚙️ Настройки комнаты')
-        btn8 = types.KeyboardButton('👤 Личные настройки')
+        btn7 = types.KeyboardButton('👤 Личные настройки')
+        btn8 = types.KeyboardButton('⚙️ Настройки комнаты')
         markup.row(btn7, btn8)
         btn9 = types.KeyboardButton('🤖 О боте')
         markup.row(btn9)
-        bot.send_message(message.chat.id,
-                         f'Привет, <b>{name}</b>!\n'
-                         f'Текущая комната: <b>"{room[0][2]}"</b>\n\n'
-                         f'<b>Выбери команду из меню:</b>',
-                         parse_mode='html', reply_markup=markup)
+    bot.send_message(message.chat.id,
+                     f"<u><b>Главное меню</b></u>\n\n"
+                     f'Привет, <b>{name}</b>!\n\n'
+                     f'<b>Выбери команду из меню:</b>',
+                     parse_mode='html', reply_markup=markup)
     bot.register_next_step_handler(message, on_click_menu_start)
 
 
@@ -86,7 +85,7 @@ def menu_start(message):
 def on_click_menu_start(message):
     if message.text == '/repair':
         command_repair(message)
-    elif message.text == 'Создать новую комнату':
+    elif message.text == '🔓 Создать новую комнату':
         room = db_functions.get_user_room(message)
         if not room:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -104,7 +103,7 @@ def on_click_menu_start(message):
                              parse_mode='html')
             menu_start(message)
 
-    elif message.text == 'Присоединиться к существующей':
+    elif message.text == '🔑 Присоединиться к существующей':
         room = db_functions.get_user_room(message)
         if not room:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -123,12 +122,19 @@ def on_click_menu_start(message):
     elif message.text == '⚙️ Настройки комнаты':
         menu_room_info(message)
 
+    elif message.text == '👤 Личные настройки':
+        menu_my_settings(message)
+
+    elif message.text == '🛒 Список покупок':
+        menu_shopping_list(message)
+
     elif message.text == '🤖 О боте':
         help_text = ''
         with open("about.txt", "r", encoding='UTF8') as f:
             for line in f.readlines():
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
+        bot.register_next_step_handler(message, on_click_menu_start)
 
     elif message.text == '/test':
         command_test(message)
@@ -151,22 +157,23 @@ def menu_room_info(message):
         # если пользователь админ комнаты
         if room[0][1] == message.from_user.id:
             btn1 = types.KeyboardButton('✏️ Изменить название комнаты')
-            btn2 = types.KeyboardButton('👑 Передать роль админа')
-            btn3 = types.KeyboardButton('🚫 Покинуть комнату')
+            btn2 = types.KeyboardButton('🔐 Изменить пароль от комнаты')
+            btn3 = types.KeyboardButton('👑 Передать роль админа')
             btn4 = types.KeyboardButton('🗑️ Удалить комнату')
-            btn5 = types.KeyboardButton('⬅️ Назад')
-            markup.add(btn1)
-            markup.add(btn2)
-            markup.add(btn3)
-            markup.add(btn4)
+            btn5 = types.KeyboardButton('🚫 Покинуть комнату')
+            btn6 = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn1, btn2)
+            markup.add(btn3, btn4)
             markup.add(btn5)
+            markup.add(btn6)
         else:
             btn1 = types.KeyboardButton('🚫 Покинуть комнату')
             btn2 = types.KeyboardButton('⬅️ Назад')
             markup.add(btn1)
             markup.add(btn2)
 
-        bot.send_message(message.chat.id, f'*Комната \"{room[0][2]}\"*\n\n'
+        bot.send_message(message.chat.id, f'__*Настройки комнаты*__\n\n'
+                                          f'*Название:* {room[0][2]}\n'
                                           f'*ID:* `{room[0][0]}`\n'
                                           f'_\(нажми на ID, чтобы скопировать\)_\n'
                                           f'*Админ комнаты:* [{admin[1]}](t.me/{admin[3]})\n'
@@ -179,7 +186,7 @@ def menu_room_info(message):
         bot.send_message(message.chat.id,
                          f'<b>Ошибка!</b> У тебя нет комнаты. Создай новую или присоединись к существующей.',
                          parse_mode='html')
-        menu_start(message)
+        bot.register_next_step_handler(message, on_click_menu_start)
 
 
 # ввод имени для создания комнаты
@@ -197,7 +204,7 @@ def create_new_room_name(message):
             var_create_room_name = message.text
             bot.register_next_step_handler(message, create_new_room_pass)
     else:
-        bot.send_message(message.chat.id, f"В качестве имени комнаты может быть только <b>текст</b>!"
+        bot.send_message(message.chat.id, f"В качестве имени комнаты может быть только <b>текст</b>!\n"
                                           f"<b>Введи название комнаты:</b>",
                          parse_mode='html')
         bot.register_next_step_handler(message, create_new_room_name)
@@ -222,7 +229,7 @@ def create_new_room_pass(message):
                                                   f"<b>Придумай другой пароль:</b>", parse_mode='html')
                 bot.register_next_step_handler(message, create_new_room_pass)
     else:
-        bot.send_message(message.chat.id, f"В качестве пароля может быть только <b>текст</b>!"
+        bot.send_message(message.chat.id, f"В качестве пароля может быть только <b>текст</b>!\n"
                                           f"<b>Придумай пароль:</b>",
                          parse_mode='html')
         bot.register_next_step_handler(message, create_new_room_pass)
@@ -250,7 +257,7 @@ def join_new_room_id(message):
                                                   f"<b>Введи id для существующей комнаты:</b>", parse_mode='html')
                 bot.register_next_step_handler(message, join_new_room_id)
     else:
-        bot.send_message(message.chat.id, f"В качестве id может быть только <b>текст</b>!"
+        bot.send_message(message.chat.id, f"В качестве id может быть только <b>текст</b>!\n"
                                           f"<b>Введи id комнаты:</b>",
                          parse_mode='html')
         bot.register_next_step_handler(message, join_new_room_id)
@@ -275,7 +282,7 @@ def join_new_room_pass(message):
                                                   f"<b>Попробуй ввести пароль еще раз:</b>", parse_mode='html')
                 bot.register_next_step_handler(message, join_new_room_pass)
     else:
-        bot.send_message(message.chat.id, f"В качестве пароля может быть только <b>текст</b>!"
+        bot.send_message(message.chat.id, f"В качестве пароля может быть только <b>текст</b>!\n"
                                           f"<b>Попробуй ввести пароль еще раз:</b>",
                          parse_mode='html')
         bot.register_next_step_handler(message, join_new_room_pass)
@@ -358,6 +365,20 @@ def on_click_menu_room_info(message):
             bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.", parse_mode='html')
             bot.register_next_step_handler(message, on_click_menu_room_info)
 
+    elif message.text == '🔐 Изменить пароль от комнаты':
+        room = db_functions.get_user_room(message)
+        if room[0][1] == message.from_user.id:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn)
+            bot.send_message(message.chat.id, f'Смена пароля от комнаты <b>"{room[0][2]}"</b>.\n'
+                                              f'<b>Введи новый пароль от комнаты:</b>',
+                             parse_mode='html', reply_markup=markup)
+            bot.register_next_step_handler(message, edit_room_pass)
+        else:
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не являешься админом комнаты.", parse_mode='html')
+            bot.register_next_step_handler(message, on_click_menu_room_info)
+
     else:
         bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
         bot.register_next_step_handler(message, on_click_menu_room_info)
@@ -377,11 +398,35 @@ def edit_room_name(message):
                              parse_mode='html')
             menu_room_info(message)
     else:
-        bot.send_message(message.chat.id, f"В качестве имени комнаты может быть только <b>текст</b>!"
+        bot.send_message(message.chat.id, f"В качестве имени комнаты может быть только <b>текст</b>!\n"
                                           f"<b>Введи новое название комнаты:</b>",
                          parse_mode='html',
                          )
         bot.register_next_step_handler(message, edit_room_name)
+
+
+def edit_room_pass(message):
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_room_info(message)
+        else:
+            if len(message.text) >= 6:
+                room = db_functions.get_user_room(message)
+                db_functions.edit_room_pass(message, room[0][0])
+                bot.send_message(message.chat.id,
+                                 f"Пароль от комнаты <b>\"{room[0][2]}\"</b> успешно изменен!\n",
+                                 parse_mode='html')
+                menu_room_info(message)
+            else:
+                bot.send_message(message.chat.id, f"Пароль не может быть короче 6 символов!\n"
+                                                  f"<b>Придумай другой пароль:</b>", parse_mode='html')
+                bot.register_next_step_handler(message, edit_room_pass)
+    else:
+        bot.send_message(message.chat.id, f"В качестве пароля от комнаты может быть только <b>текст</b>!\n"
+                                          f"<b>Введи новый пароль от комнаты:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, edit_room_pass)
 
 
 def leave_room(message):
@@ -410,10 +455,12 @@ def change_room_admin(message):
     else:
         room = db_functions.get_user_room(message)
         users = db_functions.get_users_by_room_id(room[0][0])
+        var_new_admin = None
         for user in users:
-            if message.text == f'{user[1]} ({user[3]})':
-                var_new_admin = user
-                break
+            if user[0] != message.from_user.id:
+                if message.text == f'{user[1]} ({user[3]})':
+                    var_new_admin = user
+                    break
         if var_new_admin:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
             btn1 = types.KeyboardButton('👑 Да, я точно хочу передать роль админа')
@@ -468,6 +515,110 @@ def delete_room(message):
         bot.register_next_step_handler(message, delete_room)
 
 
+def menu_my_settings(message):
+    name = db_functions.get_user_name(message)
+    room = db_functions.get_user_room(message)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn1 = types.KeyboardButton('✏️ Изменить имя')
+    btn2 = types.KeyboardButton('⬅️ Назад')
+    markup.row(btn1)
+    markup.row(btn2)
+    if not room:
+        bot.send_message(message.chat.id,
+                         f"__*Личные настройки*__\n\n"
+                         f'*Текущее имя:* {name}\n'
+                         f'Сейчас ты не состоишь в комнате\.\n\n'
+                         f'*Выбери команду из меню:*',
+                         parse_mode='MarkdownV2', reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id,
+                         f"__*Личные настройки*__\n\n"
+                         f'*Текущее имя:* {name}\n'
+                         f'*Текущая комната:* {room[0][2]}\n\n'
+                         f'*Выбери команду из меню:*',
+                         parse_mode='MarkdownV2', reply_markup=markup)
+    bot.register_next_step_handler(message, on_click_menu_my_settings)
+
+
+def on_click_menu_my_settings(message):
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
+        menu_start(message)
+    elif message.text == '✏️ Изменить имя':
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn = types.KeyboardButton('⬅️ Назад')
+        markup.add(btn)
+        bot.send_message(message.chat.id, f'<b>Введи новое имя:</b>',
+                         parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(message, edit_name)
+    else:
+        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.register_next_step_handler(message, on_click_menu_my_settings)
+
+
+def edit_name(message):
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_my_settings(message)
+        else:
+            name = db_functions.get_user_name(message)
+            db_functions.edit_name(message)
+            bot.send_message(message.chat.id,
+                             f'Теперь тебя зовут не <b>"{name}"</b>, а <b>"{message.text}"</b>.\n',
+                             parse_mode='html')
+            menu_my_settings(message)
+    else:
+        bot.send_message(message.chat.id, f"В качестве имени может быть только <b>текст</b>!\n"
+                                          f"<b>Введи новое имя:</b>",
+                         parse_mode='html',
+                         )
+        bot.register_next_step_handler(message, edit_name)
+
+
+def menu_shopping_list(message):
+    room = db_functions.get_user_room(message)
+    if room:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn1 = types.KeyboardButton('📝 Добавить продукт')
+        btn2 = types.KeyboardButton('🗑️ Удалить продукт')
+        btn3 = types.KeyboardButton('🔄 Переключить статус')
+        btn4 = types.KeyboardButton('⬅️ Назад')
+        markup.row(btn1, btn2)
+        markup.row(btn3)
+        markup.row(btn4)
+        # получение списка продуктов
+        shopping_list = db_functions.get_shopping_list(room[0][0])
+        output_shopping_list = ''
+        for buy in shopping_list:
+            output_shopping_list += f'🆔 {buy[0]} 🏷️ {buy[2]} '
+            if buy[3] == 'true':
+                output_shopping_list += '✅\n'
+            else:
+                output_shopping_list += '❌\n'
+        bot.send_message(message.chat.id, f'{output_shopping_list}',
+                         parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(message, on_click_menu_shopping_list)
+    else:
+        bot.send_message(message.chat.id,
+                         f'<b>Ошибка!</b> Пользоваться списком покупок можно только внутри комнаты. '
+                         f'Создай новую или присоединись к существующей.',
+                         parse_mode='html')
+        bot.register_next_step_handler(message, on_click_menu_start)
+
+
+def on_click_menu_shopping_list(message):
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
+        menu_start(message)
+    else:
+        bot.send_message(message.chat.id, f"Неизвестная команда. Попробуй еще раз!")
+        bot.register_next_step_handler(message, on_click_menu_shopping_list)
+
+
 # тестовый обработчик
 @bot.message_handler(commands=['test'])
 def command_test(message):
@@ -483,10 +634,16 @@ def command_test(message):
 
     cur.execute("SELECT * FROM rooms")
     users = cur.fetchall()
-
     info = 'Таблица "rooms"\n\n'
     for el in users:
         info += f'id: {el[0]}, admin_id: {el[1]}, name: {el[2]}, pass: {el[3]}\n\n'
+    bot.send_message(message.chat.id, info)
+
+    cur.execute("SELECT * FROM shopping_list")
+    users = cur.fetchall()
+    info = 'Таблица "shopping_list"\n\n'
+    for el in users:
+        info += f'id: {el[0]}, room_id: {el[1]}, name: {el[2]}, is_completed: {el[3]}\n\n'
     bot.send_message(message.chat.id, info)
 
     cur.close()
