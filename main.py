@@ -596,14 +596,16 @@ def menu_shopping_list(message):
         markup.row(btn4)
         # получение списка продуктов
         shopping_list = db_functions.get_shopping_list(room[0][0])
-        # todo: проверка наличия продуктов в списке
-        output_shopping_list = '<u><b>Список покупок</b></u>\n\n'
-        for buy in shopping_list:
-            output_shopping_list += f'🆔 {buy[0]} 📦 {buy[2]} '
-            if buy[3] == 1:
-                output_shopping_list += '✅\n'
-            else:
-                output_shopping_list += '❌\n'
+        if shopping_list:
+            output_shopping_list = '<u><b>Список покупок</b></u>\n\n'
+            for buy in shopping_list:
+                output_shopping_list += f'🆔 {buy[0]} 📦 {buy[2]} '
+                if buy[3] == 1:
+                    output_shopping_list += '✅\n'
+                else:
+                    output_shopping_list += '❌\n'
+        else:
+            output_shopping_list = '<u><b>Список покупок пуст</b></u>\n'
         output_shopping_list += '\n<b>Выбери команду из меню:</b>'
         bot.send_message(message.chat.id, f'{output_shopping_list}', parse_mode='html', reply_markup=markup)
         bot.register_next_step_handler(message, on_click_menu_shopping_list)
@@ -775,3 +777,4 @@ def other_messages(message):
 
 print("Бот запущен...")
 bot.infinity_polling(skip_pending=True, timeout=10, long_polling_timeout=5)
+
