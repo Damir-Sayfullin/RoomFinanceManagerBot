@@ -886,14 +886,14 @@ def switch_task(message):
                     bot.send_message(message.chat.id,
                                      f"Ты не можешь отметить задачу как выполненная, так как она принадлежит вам.\n"
                                      f"<b>Это должен сделать кто-то другой!</b>",
-                                     parse_mode='html', disable_web_page_preview=True)
+                                     parse_mode='html')
                 menu_tasks_list(message)
             else:
                 bot.send_message(message.chat.id,
                                  f"<b>Ошибка!</b> Задача c <b>ID={message.text}</b> не была найдена "
                                  f"в списке задач комнаты <b>\"{room[0][2]}\"</b>.\n"
                                  f"<b>Введи ID задачи еще раз:</b>", parse_mode='html')
-                bot.register_next_step_handler(message, switch_product)
+                bot.register_next_step_handler(message, switch_task)
     else:
         bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID задачи "
                                           f"может быть только <b>число</b>!\n"
