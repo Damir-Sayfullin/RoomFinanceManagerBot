@@ -1,7 +1,6 @@
 import hashlib
 import os
 import sqlite3
-from random import randint
 
 
 def create_tables():

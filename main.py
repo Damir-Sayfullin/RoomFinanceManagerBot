@@ -754,11 +754,13 @@ def menu_tasks_list(message):
         if tasks_list:
             output_tasks_list = '<u><b>График обязанностей</b></u>\n\n'
             for task in tasks_list:
-                output_tasks_list += f'{task}\n'
+                user = db_functions.get_user_by_id(task[3])
+                output_tasks_list += f'🆔 {task[0]} 📝 {task[2]} 👤 <a href="t.me/{user[3]}">{user[1]}</a>\n'
         else:
             output_tasks_list = '<u><b>Список задач пуст</b></u>\n'
         output_tasks_list += '\n<b>Выбери команду из меню:</b>'
-        bot.send_message(message.chat.id, f'{output_tasks_list}', parse_mode='html', reply_markup=markup)
+        bot.send_message(message.chat.id, f'{output_tasks_list}',
+                         parse_mode='html', reply_markup=markup, disable_web_page_preview=True)
         bot.register_next_step_handler(message, on_click_menu_tasks_list)
     else:
         bot.send_message(message.chat.id,
@@ -884,7 +886,8 @@ def switch_task(message):
                                      parse_mode='html', disable_web_page_preview=True)
                 else:
                     bot.send_message(message.chat.id,
-                                     f"Ты не можешь отметить задачу как выполненная, так как она принадлежит вам.\n"
+                                     f"<b>Ошибка!</b> Ты не можешь отметить задачу как выполненную, "
+                                     f"так как она принадлежит тебе.\n"
                                      f"<b>Это должен сделать кто-то другой!</b>",
                                      parse_mode='html')
                 menu_tasks_list(message)
