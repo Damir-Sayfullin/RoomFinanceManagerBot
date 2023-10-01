@@ -11,7 +11,6 @@ bot = telebot.TeleBot(BOT_TOKEN, skip_pending=True)
 
 var_create_room_name = None
 var_join_room_id = None
-var_join_room_pass = None
 var_join_room_name = None
 var_new_admin = None
 
@@ -19,7 +18,10 @@ var_new_admin = None
 @bot.message_handler(commands=['start'])
 def command_start(message):
     db_functions.create_tables()
-    if db_functions.get_user_by_id(message.from_user.id):
+    user = db_functions.get_user_by_id(message.from_user.id)
+    if user:
+        if user[3] != message.from_user.username:
+            db_functions.set_username(message)
         menu_start(message)
     else:
         help_text = ''
@@ -195,7 +197,7 @@ def create_new_room_pass(message):
 # ввод id для присоединения к комнате
 def join_new_room_id(message):
     if message.content_type == 'text':
-        global var_join_room_id, var_join_room_name, var_join_room_pass
+        global var_join_room_id, var_join_room_name
         if message.text == '/repair':
             command_repair(message)
         elif message.text == '⬅️ Назад':
@@ -207,7 +209,6 @@ def join_new_room_id(message):
                                                   f"<b>Введи пароль от комнаты:</b>", parse_mode='html')
                 var_join_room_id = message.text
                 var_join_room_name = room_info[2]
-                var_join_room_pass = room_info[3]
                 bot.register_next_step_handler(message, join_new_room_pass)
             else:
                 bot.send_message(message.chat.id, f"<b>Ошибка!</b> "
@@ -222,19 +223,19 @@ def join_new_room_id(message):
 
 # ввод пароля и присоединение к комнате
 def join_new_room_pass(message):
-    global var_join_room_id, var_join_room_name, var_join_room_pass
+    global var_join_room_id, var_join_room_name
     if message.content_type == 'text':
         if message.text == '/repair':
             command_repair(message)
         elif message.text == '⬅️ Назад':
             menu_start(message)
         else:
-            if db_functions.check_pass(message, var_join_room_pass):
+            if db_functions.check_pass_by_room_id(message, var_join_room_id):
                 db_functions.join_user_on_room(message, var_join_room_id)
                 bot.send_message(message.chat.id,
                                  f"Поздравляю! Ты теперь в комнате <b>\"{var_join_room_name}\"</b>!",
                                  parse_mode='html')
-                var_join_room_id = var_join_room_name = var_join_room_pass = None
+                var_join_room_id = var_join_room_name = None
                 menu_start(message)
             else:
                 bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неверный пароль!\n"
@@ -254,7 +255,7 @@ def menu_room_info(message):
         users = db_functions.get_users_by_room_id(room[0][0])
         users_list = ''
         for user in users:
-            users_list += f'[{user[1]}](t.me/{user[3]})\n'
+            users_list += f'<a href="t.me/{user[3]}">{user[1]}</a>\n'
 
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         # если пользователь админ комнаты
@@ -275,15 +276,15 @@ def menu_room_info(message):
             markup.add(btn1)
             markup.add(btn2)
 
-        bot.send_message(message.chat.id, f'__*Настройки комнаты*__\n\n'
-                                          f'*Название:* {room[0][2]}\n'
-                                          f'*ID:* `{room[0][0]}`\n'
-                                          f'_\(нажми на ID, чтобы скопировать\)_\n'
-                                          f'*Админ комнаты:* [{admin[1]}](t.me/{admin[3]})\n'
-                                          f'*Участники:*\n'
+        bot.send_message(message.chat.id, f'<b><u>Настройки комнаты</u></b>\n\n'
+                                          f'<b>Название:</b> {room[0][2]}\n'
+                                          f'<b>ID:</b> <code>{room[0][0]}</code>\n'
+                                          f'<i>(нажми на ID, чтобы скопировать)</i>\n'
+                                          f'<b>Админ комнаты:</b> <a href="t.me/{admin[3]}">{admin[1]}</a>\n'
+                                          f'<b>Участники:</b>\n'
                                           f'{users_list}\n'
-                                          f'*Выбери команду из меню:*',
-                         parse_mode='MarkdownV2', reply_markup=markup, disable_web_page_preview=True)
+                                          f'<b>Выбери команду из меню:</b>',
+                         parse_mode='html', reply_markup=markup, disable_web_page_preview=True)
         bot.register_next_step_handler(message, on_click_menu_room_info)
     else:
         bot.send_message(message.chat.id,
@@ -446,10 +447,19 @@ def leave_room(message):
         menu_room_info(message)
     elif message.text == '🚫 Да, я точно хочу покинуть комнату':
         room = db_functions.get_user_room(message)
-        db_functions.leave_room(message)
-        bot.send_message(message.chat.id,
-                         f"Ты покинул комнату <b>\"{room[0][2]}\"</b>!", parse_mode='html')
-        menu_start(message)
+        if room[0][1] == message.from_user.id:
+            room = db_functions.get_user_room(message)
+            db_functions.leave_room(message)
+            bot.send_message(message.chat.id,
+                             f"Ты покинул комнату <b>\"{room[0][2]}\"</b>!", parse_mode='html')
+            menu_start(message)
+        else:
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не можешь покинуть комнату, "
+                                              f"пока являешься его админом. "
+                                              f"Чтобы покинуть комнату, "
+                                              f"передай роль админа другому участнику комнаты "
+                                              f"или удали эту комнату полностью.", parse_mode='html')
+            menu_room_info(message)
     else:
         bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
                          parse_mode='html')
@@ -537,18 +547,18 @@ def menu_my_settings(message):
     markup.row(btn2)
     if not room:
         bot.send_message(message.chat.id,
-                         f"__*Личные настройки*__\n\n"
-                         f'*Текущее имя:* {name}\n'
-                         f'Сейчас ты не состоишь в комнате\.\n\n'
-                         f'*Выбери команду из меню:*',
-                         parse_mode='MarkdownV2', reply_markup=markup)
+                         f"<u><b>Личные настройки</b></u>\n\n"
+                         f'<b>Текущее имя:</b> {name}\n'
+                         f'Сейчас ты не состоишь в комнате.\n\n'
+                         f'<b>Выбери команду из меню:</b>',
+                         parse_mode='html', reply_markup=markup)
     else:
         bot.send_message(message.chat.id,
-                         f"__*Личные настройки*__\n\n"
-                         f'*Текущее имя:* {name}\n'
-                         f'*Текущая комната:* {room[0][2]}\n\n'
-                         f'*Выбери команду из меню:*',
-                         parse_mode='MarkdownV2', reply_markup=markup)
+                         f"<u><b>Личные настройки</b></u>\n\n"
+                         f'<b>Текущее имя:</b> {name}\n'
+                         f'<b>Текущая комната:</b> {room[0][2]}\n\n'
+                         f'<b>Выбери команду из меню:</b>',
+                         parse_mode='html', reply_markup=markup)
     bot.register_next_step_handler(message, on_click_menu_my_settings)
 
 
@@ -912,31 +922,31 @@ def command_test(message):
 
     cur.execute("SELECT * FROM users")
     users = cur.fetchall()
-    info = 'Таблица "users"\n\n'
+    info = '<u>Таблица "users"</u>\n\n'
     for el in users:
-        info += f'id: {el[0]}, name: {el[1]}, room_id: {el[2]}\n\n'
-    bot.send_message(message.chat.id, info)
+        info += f'id: {el[0]}, name: {el[1]}, room_id: {el[2]}, username: {el[3]}\n\n'
+    bot.send_message(message.chat.id, info, parse_mode='html')
 
     cur.execute("SELECT * FROM rooms")
     rooms = cur.fetchall()
-    info = 'Таблица "rooms"\n\n'
+    info = '<u>Таблица "rooms"</u>\n\n'
     for el in rooms:
-        info += f'id: {el[0]}, admin_id: {el[1]}, name: {el[2]}, pass: {el[3]}\n\n'
-    bot.send_message(message.chat.id, info)
+        info += f'id: {el[0]}, admin_id: {el[1]}, name: {el[2]}, password: ******\n\n'
+    bot.send_message(message.chat.id, info, parse_mode='html')
 
     cur.execute("SELECT * FROM shopping_list")
     shopping_list = cur.fetchall()
-    info = 'Таблица "shopping_list"\n\n'
+    info = '<u>Таблица "shopping_list"</u>\n\n'
     for el in shopping_list:
         info += f'id: {el[0]}, room_id: {el[1]}, name: {el[2]}, is_completed: {el[3]}\n\n'
-    bot.send_message(message.chat.id, info)
+    bot.send_message(message.chat.id, info, parse_mode='html')
 
     cur.execute("SELECT * FROM tasks_list")
     tasks_list = cur.fetchall()
-    info = 'Таблица "tasks_list"\n\n'
+    info = '<u>Таблица "tasks_list"</u>\n\n'
     for el in tasks_list:
-        info += f'id: {el[0]}, room_id: {el[1]}, name: {el[2]}, executer: {el[3]}\n\n'
-    bot.send_message(message.chat.id, info)
+        info += f'id: {el[0]}, room_id: {el[1]}, name: {el[2]}, executor: {el[3]}\n\n'
+    bot.send_message(message.chat.id, info, parse_mode='html')
 
     cur.close()
     conn.close()

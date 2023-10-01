@@ -54,7 +54,7 @@ def create_new_user(message):
 
 
 def get_user_by_id(user_id):
-    """ Поиск пользователя. Возвращает данные о пользователе или False."""
+    """ Поиск пользователя. Возвращает данные о пользователе или False """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
     cur.execute("SELECT * FROM users WHERE id=?", (user_id,))
@@ -64,8 +64,18 @@ def get_user_by_id(user_id):
     return query[0] if query else False
 
 
+def set_username(message):
+    """ Обновление имени пользователя (username) при его смене """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET username=? WHERE id=?", (message.from_user.username, message.from_user.id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def get_user_room(message):
-    """ Проверка наличия комнаты у пользователя в бд. Возвращает данные о комнате или False. """
+    """ Проверка наличия комнаты у пользователя в бд. Возвращает данные о комнате или False """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
     cur.execute('SELECT room_id FROM users WHERE id=?', (message.from_user.id,))
@@ -125,7 +135,7 @@ def check_room_by_id(message):
     """ Поиск комнаты по ID. Возвращает информацию о комнате или False."""
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    cur.execute("SELECT * FROM rooms  WHERE id=?", (message.text,))
+    cur.execute("SELECT * FROM rooms WHERE id=?", (message.text,))
     query = cur.fetchall()
     cur.close()
     conn.close()
@@ -150,8 +160,14 @@ def hashing_pass(password):
     return new_password
 
 
-def check_pass(message, password):
-    """ Проверка пароля. Возвращает True или False"""
+def check_pass_by_room_id(message, room_id):
+    """ Проверка пароля по id комнаты. Возвращает True или False """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("SELECT password FROM rooms WHERE id=?", (room_id,))
+    password = cur.fetchall()[0][0]
+    cur.close()
+    conn.close()
     true_salt = password[:32]
     true_key = password[32:]
     key = hashlib.pbkdf2_hmac('sha256', message.text.encode('utf-8'), true_salt, 10000)
