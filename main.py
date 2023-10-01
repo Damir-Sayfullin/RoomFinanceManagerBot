@@ -27,7 +27,7 @@ def command_start(message):
             for line in f.readlines():
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
-        bot.send_message(message.chat.id, "Давай знакомиться!\n<b>Введи своё имя "
+        bot.send_message(message.chat.id, "Видимо ты тут впервые. Давай знакомиться!\n<b>Введи своё имя "
                                           "(это имя можно будет поменять):</b>", parse_mode='html')
         bot.register_next_step_handler(message, create_new_user)
 
@@ -365,7 +365,7 @@ def on_click_menu_room_info(message):
             bot.send_message(message.chat.id, f"Ты действительно хочешь удалить комнату <b>\"{room[0][2]}\"</b>?\n"
                                               f"<b>Это действие нельзя будет отменить. "
                                               f"Все участники будут выгнаны и все данные о комнате, "
-                                              f"включая покупки и долги будут удалены!</b>",
+                                              f"включая задачи, покупки и долги будут удалены!</b>",
                              parse_mode='html', reply_markup=markup)
             bot.register_next_step_handler(message, delete_room)
         else:
@@ -952,7 +952,7 @@ def command_repair(message):
 # обработка остального текста
 @bot.message_handler()
 def other_messages(message):
-    menu_start(message)
+    command_start(message)
 
 
 print("Бот запущен...")

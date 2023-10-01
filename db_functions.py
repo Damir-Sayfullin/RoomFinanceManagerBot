@@ -233,6 +233,8 @@ def delete_room(message, room_id):
     conn.commit()
     cur.execute("DELETE FROM shopping_list WHERE room_id=?", (room_id,))
     conn.commit()
+    cur.execute("DELETE FROM tasks_list WHERE room_id=?", (room_id,))
+    conn.commit()
     # todo: удалить данные и с других таблиц
     cur.close()
     conn.close()
