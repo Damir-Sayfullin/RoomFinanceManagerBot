@@ -30,6 +30,13 @@ def create_tables():
                 'is_completed BOOLEAN NOT NULL DEFAULT 0)')
     conn.commit()
 
+    cur.execute('CREATE TABLE IF NOT EXISTS tasks_list ('
+                'id INTEGER PRIMARY KEY,'
+                'room_id INTEGER NOT NULL,'
+                'name VARCHAR(50) NOT NULL,'
+                'executor_id INTEGER NOT NULL)')
+    conn.commit()
+
     # todo: другие таблицы
 
     cur.close()
@@ -47,15 +54,15 @@ def create_new_user(message):
     conn.close()
 
 
-def get_user_name(message):
-    """ Поиск имени пользователя. Возвращает имя пользователя или False."""
+def get_user_by_id(user_id):
+    """ Поиск пользователя. Возвращает данные о пользователе или False."""
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users  WHERE id=?", (message.from_user.id,))
+    cur.execute("SELECT * FROM users WHERE id=?", (user_id,))
     query = cur.fetchall()
     cur.close()
     conn.close()
-    return query[0][1] if query else False
+    return query[0] if query else False
 
 
 def get_user_room(message):
@@ -153,7 +160,7 @@ def check_pass(message, password):
 
 
 def get_admin_by_room_id(room_id):
-    """ Поиск имени админа по id комнаты """
+    """ Поиск админа по id комнаты """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
     cur.execute("SELECT admin_id FROM rooms WHERE id=?", (room_id,))
@@ -225,6 +232,8 @@ def delete_room(message, room_id):
     conn.commit()
     cur.execute("DELETE FROM rooms WHERE id=?", (room_id,))
     conn.commit()
+    cur.execute("DELETE FROM shopping_list WHERE room_id=?", (room_id,))
+    conn.commit()
     # todo: удалить данные и с других таблиц
     cur.close()
     conn.close()
@@ -281,10 +290,10 @@ def add_product(message, room_id):
 
 
 def delete_product(message, room_id):
-    """ Удаление продукта из списка покупок. Возвращает True при успешном удалении, иначе False """
+    """ Удаление продукта из списка покупок. Возвращает название продукта при успешном удалении, иначе False """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    # проверка принадлежности покупки комнате
+    # получение списка покупок комнаты
     cur.execute("SELECT * FROM shopping_list WHERE room_id=?", (room_id,))
     products = cur.fetchall()
     for product in products:
@@ -303,7 +312,7 @@ def switch_product(message, room_id):
     """ Смена статуса продукта в списке покупок. Возвращает список (название, статус) или None """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    # проверка принадлежности покупки комнате
+    # получение списка покупок комнаты
     cur.execute("SELECT * FROM shopping_list WHERE room_id=?", (room_id,))
     products = cur.fetchall()
     for product in products:
@@ -318,4 +327,115 @@ def switch_product(message, room_id):
             cur.close()
             conn.close()
             return product[2], status
+    return None
+
+
+def get_tasks_list(room_id):
+    """ Получение списка задач по id комнаты """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tasks_list WHERE room_id=?", (room_id,))
+    tasks_list = cur.fetchall()
+    cur.close()
+    conn.close()
+    return tasks_list
+
+
+def add_task(message, room_id):
+    """ Добавление задачи в список задач. Возвращает id и username следующего выполняющего """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    # получение списка существующих id
+    cur.execute("SELECT id FROM tasks_list")
+    tasks = cur.fetchall()
+    tasks_id_list = []
+    for task in tasks:
+        tasks_id_list.append(task[0])
+    # поиск свободного id
+    new_task_id = None
+    id_min, id_max = 1, 10  # выбор диапазона id
+    while not new_task_id:
+        for id in range(id_min, id_max):
+            if id not in tasks_id_list:  # если найден свободный id
+                new_task_id = id
+                break
+        if not new_task_id:  # если в выбранном диапазоне не осталось свободных id, диапазон расширяется в 10 раз
+            id_min *= 10
+            id_max *= 10
+    # получение списка участников комнаты
+    users = get_users_by_room_id(room_id)
+    # добавление задачи
+    cur.execute("INSERT INTO tasks_list (id, room_id, name, executor_id) VALUES (?, ?, ?, ?)",
+                (new_task_id, room_id, message.text, users[0][0]))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return users[0][1], users[0][3]
+
+
+def delete_task(message, room_id):
+    """ Удаление задачи из списка задач. Возвращает название задачи при успешном удалении, иначе False """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    # получение списка задач комнаты
+    cur.execute("SELECT * FROM tasks_list WHERE room_id=?", (room_id,))
+    tasks = cur.fetchall()
+    for task in tasks:
+        if message.text == str(task[0]):
+            cur.execute("DELETE FROM tasks_list WHERE id=? ", message.text)
+            conn.commit()
+            cur.close()
+            conn.close()
+            return task[2]
+    cur.close()
+    conn.close()
+    return False
+
+
+def get_next_user(user_id, room_id):
+    """ Принимает текущего пользователя и id комнаты. Возвращает следующего пользователя в комнате """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    users = get_users_by_room_id(room_id)
+    need_next_user = False
+    next_user = None
+    for user in users:
+        if need_next_user:
+            next_user = user
+            break
+        if user[0] == user_id:
+            if user == users[-1]:
+                next_user = users[0]
+                break
+            else:
+                need_next_user = True
+    cur.close()
+    conn.close()
+    return next_user
+
+
+def switch_task(message, room_id):
+    """ Смена выполняющего задачи. Возвращает данные о задаче, текущего и следующего выполняющего,
+    или 'error', если выполняющий это отправитель сообщения,
+    или None """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    # получение списка задач комнаты
+    cur.execute("SELECT * FROM tasks_list WHERE room_id=?", (room_id,))
+    tasks = cur.fetchall()
+    # получение списка участников комнаты
+    users = get_users_by_room_id(room_id)
+    for task in tasks:
+        if message.text == str(task[0]):
+            for user in users:
+                if user[0] == task[3]:
+                    if user[0] == message.from_user.id:
+                        return 'error'
+                    next_executor = get_next_user(user[0], room_id)
+                    cur.execute("UPDATE tasks_list SET executor_id=? WHERE id=?",
+                                (next_executor[0], task[0]))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    return task, user, next_executor
     return None

@@ -1,3 +1,5 @@
+import time
+
 import telebot
 from telebot import types
 import sqlite3
@@ -17,7 +19,7 @@ var_new_admin = None
 @bot.message_handler(commands=['start'])
 def command_start(message):
     db_functions.create_tables()
-    if db_functions.get_user_name(message):
+    if db_functions.get_user_by_id(message.from_user.id):
         menu_start(message)
     else:
         help_text = ''
@@ -45,7 +47,7 @@ def create_new_user(message):
 
 # главное меню
 def menu_start(message):
-    name = db_functions.get_user_name(message)
+    name = db_functions.get_user_by_id(message.from_user.id)[1]
     room = db_functions.get_user_room(message)
     if not room:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -64,7 +66,7 @@ def menu_start(message):
         btn3 = types.KeyboardButton('*Мои долги')
         btn4 = types.KeyboardButton('*Общие долги')
         markup.row(btn3, btn4)
-        btn5 = types.KeyboardButton('*График обязанностей')
+        btn5 = types.KeyboardButton('✅ Обязанности')
         btn6 = types.KeyboardButton('🛒 Список покупок')
         markup.row(btn5, btn6)
         btn7 = types.KeyboardButton('👤 Личные настройки')
@@ -124,6 +126,9 @@ def on_click_menu_start(message):
 
     elif message.text == '🛒 Список покупок':
         menu_shopping_list(message)
+
+    elif message.text == '✅ Обязанности':
+        menu_tasks_list(message)
 
     elif message.text == '🤖 О боте':
         help_text = ''
@@ -523,7 +528,7 @@ def delete_room(message):
 
 
 def menu_my_settings(message):
-    name = db_functions.get_user_name(message)
+    name = db_functions.get_user_by_id(message.from_user.id)[1]
     room = db_functions.get_user_room(message)
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btn1 = types.KeyboardButton('✏️ Изменить имя')
@@ -571,7 +576,7 @@ def edit_name(message):
         elif message.text == '⬅️ Назад':
             menu_my_settings(message)
         else:
-            name = db_functions.get_user_name(message)
+            name = db_functions.get_user_by_id(message.from_user.id)[1]
             db_functions.edit_name(message)
             bot.send_message(message.chat.id,
                              f'Теперь тебя зовут не <b>"{name}"</b>, а <b>"{message.text}"</b>.\n',
@@ -731,6 +736,171 @@ def switch_product(message):
         bot.register_next_step_handler(message, switch_product)
 
 
+# меню обязанностей
+def menu_tasks_list(message):
+    room = db_functions.get_user_room(message)
+    if room:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        if room[0][1] == message.from_user.id:
+            btn1 = types.KeyboardButton('📝 Добавить задачу')
+            btn2 = types.KeyboardButton('🗑️ Удалить задачу')
+            markup.row(btn1, btn2)
+        btn3 = types.KeyboardButton('☑️ Отметить как выполненную')
+        btn4 = types.KeyboardButton('⬅️ Назад')
+        markup.row(btn3)
+        markup.row(btn4)
+        # получение списка продуктов
+        tasks_list = db_functions.get_tasks_list(room[0][0])
+        if tasks_list:
+            output_tasks_list = '<u><b>График обязанностей</b></u>\n\n'
+            for task in tasks_list:
+                output_tasks_list += f'{task}\n'
+        else:
+            output_tasks_list = '<u><b>Список задач пуст</b></u>\n'
+        output_tasks_list += '\n<b>Выбери команду из меню:</b>'
+        bot.send_message(message.chat.id, f'{output_tasks_list}', parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(message, on_click_menu_tasks_list)
+    else:
+        bot.send_message(message.chat.id,
+                         f'<b>Ошибка!</b> Пользоваться списком задач можно только внутри комнаты. '
+                         f'Создай новую или присоединись к существующей.', parse_mode='html')
+        bot.register_next_step_handler(message, on_click_menu_start)
+
+
+def on_click_menu_tasks_list(message):
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
+        menu_start(message)
+
+    elif message.text == '📝 Добавить задачу':
+        room = db_functions.get_user_room(message)
+        if room[0][1] == message.from_user.id:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn)
+            bot.send_message(message.chat.id, f"Какую задачу хочешь добавить?\n"
+                                              f"<b>Введи название задачи:</b>", parse_mode='html', reply_markup=markup)
+            bot.register_next_step_handler(message, add_task)
+        else:
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Добавлять задачи может только админ комнаты.",
+                             parse_mode='html')
+            bot.register_next_step_handler(message, menu_tasks_list)
+
+    elif message.text == '🗑️ Удалить задачу':
+        room = db_functions.get_user_room(message)
+        if room[0][1] == message.from_user.id:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn)
+            bot.send_message(message.chat.id, f"Какую задачу хочешь удалить?\n"
+                                              f"<b>Введи ID задачи:</b>", parse_mode='HTML', reply_markup=markup)
+            bot.register_next_step_handler(message, delete_task)
+        else:
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Удалять задачи может только админ комнаты.",
+                             parse_mode='html')
+            bot.register_next_step_handler(message, on_click_menu_room_info)
+
+    elif message.text == '☑️ Отметить как выполненную':
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn = types.KeyboardButton('⬅️ Назад')
+        markup.add(btn)
+        bot.send_message(message.chat.id, f"Какую задачу нужно отметить как выполненную?\n"
+                                          f"<b>Введи ID задачи:</b>", parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(message, switch_task)
+
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                         parse_mode='html')
+        bot.register_next_step_handler(message, on_click_menu_tasks_list)
+
+
+def add_task(message):
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_tasks_list(message)
+        else:
+            room = db_functions.get_user_room(message)
+            next_executor = db_functions.add_task(message, room[0][0])
+            bot.send_message(message.chat.id,
+                             f"Задача <b>\"{message.text}\"</b> была добавлена "
+                             f"в список задач комнаты <b>\"{room[0][2]}\"</b>.\n"
+                             f"Следующий выполняющий этой задачи: "
+                             f"<a href='t.me/{next_executor[1]}'>{next_executor[0]}</a>",
+                             parse_mode='html', disable_web_page_preview=True)
+            menu_tasks_list(message)
+    else:
+        bot.send_message(message.chat.id,
+                         f"<b>Ошибка!</b> В качестве названия задачи может быть только <b>текст</b>!\n"
+                         f"<b>Введи название задачи:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, add_task)
+
+
+def delete_task(message):
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_tasks_list(message)
+        else:
+            room = db_functions.get_user_room(message)
+            deleted_task = db_functions.delete_task(message, room[0][0])
+            if deleted_task:
+                bot.send_message(message.chat.id,
+                                 f"Задача <b>\"{deleted_task}\"</b> была удалена "
+                                 f"из списка задач комнаты <b>\"{room[0][2]}\"</b>.", parse_mode='html')
+                menu_tasks_list(message)
+            else:
+                bot.send_message(message.chat.id,
+                                 f"<b>Ошибка!</b> Задача c <b>ID={message.text}</b> не была найдена "
+                                 f"в списке задач комнаты <b>\"{room[0][2]}\"</b>.\n"
+                                 f"<b>Введи ID задачи еще раз:</b>", parse_mode='html')
+                bot.register_next_step_handler(message, delete_task)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID задачи "
+                                          f"может быть только <b>число</b>!\n"
+                                          f"<b>Введи ID задачи:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, delete_task)
+
+
+def switch_task(message):
+    if message.content_type == 'text':
+        if message.text == '/repair':
+            command_repair(message)
+        elif message.text == '⬅️ Назад':
+            menu_tasks_list(message)
+        else:
+            room = db_functions.get_user_room(message)
+            switch_result = db_functions.switch_task(message, room[0][0])
+            if switch_result:
+                if switch_result != 'error':
+                    bot.send_message(message.chat.id,
+                                     f"Задача <b>\"{switch_result[0][2]}\"</b> была выполнена пользователем "
+                                     f"<a href='t.me/{switch_result[1][3]}'>{switch_result[1][1]}</a>.\n"
+                                     f"Следующий выполняющий этой задачи: "
+                                     f"<a href='t.me/{switch_result[2][3]}'>{switch_result[2][1]}</a>.",
+                                     parse_mode='html', disable_web_page_preview=True)
+                else:
+                    bot.send_message(message.chat.id,
+                                     f"Ты не можешь отметить задачу как выполненная, так как она принадлежит вам.\n"
+                                     f"<b>Это должен сделать кто-то другой!</b>",
+                                     parse_mode='html', disable_web_page_preview=True)
+                menu_tasks_list(message)
+            else:
+                bot.send_message(message.chat.id,
+                                 f"<b>Ошибка!</b> Задача c <b>ID={message.text}</b> не была найдена "
+                                 f"в списке задач комнаты <b>\"{room[0][2]}\"</b>.\n"
+                                 f"<b>Введи ID задачи еще раз:</b>", parse_mode='html')
+                bot.register_next_step_handler(message, switch_product)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID задачи "
+                                          f"может быть только <b>число</b>!\n"
+                                          f"<b>Введи ID задачи:</b>", parse_mode='html')
+        bot.register_next_step_handler(message, switch_task)
+
+
 # тестовый обработчик
 @bot.message_handler(commands=['test'])
 def command_test(message):
@@ -745,17 +915,24 @@ def command_test(message):
     bot.send_message(message.chat.id, info)
 
     cur.execute("SELECT * FROM rooms")
-    users = cur.fetchall()
+    rooms = cur.fetchall()
     info = 'Таблица "rooms"\n\n'
-    for el in users:
+    for el in rooms:
         info += f'id: {el[0]}, admin_id: {el[1]}, name: {el[2]}, pass: {el[3]}\n\n'
     bot.send_message(message.chat.id, info)
 
     cur.execute("SELECT * FROM shopping_list")
-    users = cur.fetchall()
+    shopping_list = cur.fetchall()
     info = 'Таблица "shopping_list"\n\n'
-    for el in users:
+    for el in shopping_list:
         info += f'id: {el[0]}, room_id: {el[1]}, name: {el[2]}, is_completed: {el[3]}\n\n'
+    bot.send_message(message.chat.id, info)
+
+    cur.execute("SELECT * FROM tasks_list")
+    tasks_list = cur.fetchall()
+    info = 'Таблица "tasks_list"\n\n'
+    for el in tasks_list:
+        info += f'id: {el[0]}, room_id: {el[1]}, name: {el[2]}, executer: {el[3]}\n\n'
     bot.send_message(message.chat.id, info)
 
     cur.close()
@@ -777,4 +954,3 @@ def other_messages(message):
 
 print("Бот запущен...")
 bot.infinity_polling(skip_pending=True, timeout=10, long_polling_timeout=5)
-
