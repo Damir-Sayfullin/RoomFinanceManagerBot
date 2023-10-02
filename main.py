@@ -1,3 +1,4 @@
+import datetime
 import time
 
 import telebot
@@ -124,7 +125,7 @@ def on_click_menu_start(message):
         menu_room_info(message)
 
     elif message.text == '👤 Личные настройки':
-        menu_my_settings(message)
+        menu_user_settings(message)
 
     elif message.text == '🛒 Список покупок':
         menu_shopping_list(message)
@@ -329,7 +330,7 @@ def on_click_menu_room_info(message):
                              parse_mode='html', reply_markup=markup)
             bot.register_next_step_handler(message, leave_room)
         else:
-            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не можешь покинуть комнату, "
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не можешь покинуть комнату "
                                               f"пока являешься его админом. "
                                               f"Чтобы покинуть комнату, "
                                               f"передай роль админа другому участнику комнаты "
@@ -454,7 +455,7 @@ def leave_room(message):
                              f"Ты покинул комнату <b>\"{room[0][2]}\"</b>!", parse_mode='html')
             menu_start(message)
         else:
-            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не можешь покинуть комнату, "
+            bot.send_message(message.chat.id, f"<b>Ошибка!</b> Ты не можешь покинуть комнату "
                                               f"пока являешься его админом. "
                                               f"Чтобы покинуть комнату, "
                                               f"передай роль админа другому участнику комнаты "
@@ -537,14 +538,16 @@ def delete_room(message):
         bot.register_next_step_handler(message, delete_room)
 
 
-def menu_my_settings(message):
+def menu_user_settings(message):
     name = db_functions.get_user_by_id(message.from_user.id)[1]
     room = db_functions.get_user_room(message)
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btn1 = types.KeyboardButton('✏️ Изменить имя')
-    btn2 = types.KeyboardButton('⬅️ Назад')
+    btn2 = types.KeyboardButton('🚫 Удалить профиль')
+    btn3 = types.KeyboardButton('⬅️ Назад')
     markup.row(btn1)
     markup.row(btn2)
+    markup.row(btn3)
     if not room:
         bot.send_message(message.chat.id,
                          f"<u><b>Личные настройки</b></u>\n\n"
@@ -559,10 +562,10 @@ def menu_my_settings(message):
                          f'<b>Текущая комната:</b> {room[0][2]}\n\n'
                          f'<b>Выбери команду из меню:</b>',
                          parse_mode='html', reply_markup=markup)
-    bot.register_next_step_handler(message, on_click_menu_my_settings)
+    bot.register_next_step_handler(message, on_click_menu_user_settings)
 
 
-def on_click_menu_my_settings(message):
+def on_click_menu_user_settings(message):
     if message.text == '/repair':
         command_repair(message)
     elif message.text == '⬅️ Назад':
@@ -573,10 +576,27 @@ def on_click_menu_my_settings(message):
         markup.add(btn)
         bot.send_message(message.chat.id, f'<b>Введи новое имя:</b>', parse_mode='html', reply_markup=markup)
         bot.register_next_step_handler(message, edit_name)
+    elif message.text == '🚫 Удалить профиль':
+        room = db_functions.get_user_room(message)
+        if not room:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            btn1 = types.KeyboardButton('🚫 Да, я точно хочу удалить профиль')
+            btn2 = types.KeyboardButton('⬅️ Назад')
+            markup.add(btn1)
+            markup.add(btn2)
+            bot.send_message(message.chat.id, f'<b>Ты действительно хочешь удалить профиль?</b>',
+                             parse_mode='html', reply_markup=markup)
+            bot.register_next_step_handler(message, delete_user)
+        else:
+            bot.send_message(message.chat.id, f'<b>Ошибка!</b> Ты не можешь удалить профиль '
+                                              f'пока состоишь в комнате. '
+                                              f'Чтобы удалить профиль, '
+                                              f'покинь комнату <b>"{room[0][2]}"</b> или удали его.', parse_mode='html')
+            bot.register_next_step_handler(message, on_click_menu_user_settings)
     else:
         bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
                          parse_mode='html')
-        bot.register_next_step_handler(message, on_click_menu_my_settings)
+        bot.register_next_step_handler(message, on_click_menu_user_settings)
 
 
 def edit_name(message):
@@ -584,18 +604,36 @@ def edit_name(message):
         if message.text == '/repair':
             command_repair(message)
         elif message.text == '⬅️ Назад':
-            menu_my_settings(message)
+            menu_user_settings(message)
         else:
             name = db_functions.get_user_by_id(message.from_user.id)[1]
             db_functions.edit_name(message)
             bot.send_message(message.chat.id,
                              f'Теперь тебя зовут не <b>"{name}"</b>, а <b>"{message.text}"</b>.\n',
                              parse_mode='html')
-            menu_my_settings(message)
+            menu_user_settings(message)
     else:
         bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве имени может быть только <b>текст</b>!\n"
                                           f"<b>Введи новое имя:</b>", parse_mode='html')
         bot.register_next_step_handler(message, edit_name)
+
+
+def delete_user(message):
+    if message.text == '/repair':
+        command_repair(message)
+    elif message.text == '⬅️ Назад':
+        menu_user_settings(message)
+    elif message.text == '🚫 Да, я точно хочу удалить профиль':
+        user = db_functions.get_user_by_id(message.from_user.id)
+        db_functions.delete_user(message)
+        markup = types.ReplyKeyboardRemove()
+        bot.send_message(message.chat.id, f"Профиль <b>{user[1]}</b> был удален!\n"
+                                          f"Напиши любое сообщение, чтобы создать новый.",
+                         parse_mode='html', reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
+                         parse_mode='html')
+        bot.register_next_step_handler(message, delete_user)
 
 
 def menu_shopping_list(message):
@@ -965,5 +1003,8 @@ def other_messages(message):
     command_start(message)
 
 
-print("Бот запущен...")
+date = str(datetime.datetime.now().date())
+hour = str(datetime.datetime.now().hour)
+minute = str(datetime.datetime.now().minute)
+print('[' + date + ' ' + hour + ':' + minute + '] - Запуск бота')
 bot.infinity_polling(skip_pending=True, timeout=10, long_polling_timeout=5)

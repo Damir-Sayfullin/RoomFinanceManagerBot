@@ -266,6 +266,16 @@ def edit_name(message):
     conn.close()
 
 
+def delete_user(message):
+    """ Удаление профиля """
+    conn = sqlite3.connect('chatbot.db')
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE id=?", (message.from_user.id, ))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def get_shopping_list(room_id):
     """ Получение списка покупок по id комнаты """
     conn = sqlite3.connect('chatbot.db')
