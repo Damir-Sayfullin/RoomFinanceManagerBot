@@ -26,7 +26,7 @@ def command_start(message):
         menu_start(message)
     else:
         help_text = ''
-        with open("about.txt", "r", encoding='UTF8') as f:
+        with open("about_bot.txt", "r", encoding='UTF8') as f:
             for line in f.readlines():
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
@@ -63,7 +63,7 @@ def menu_start(message):
         markup.row(btn4)
     else:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        btn1 = types.KeyboardButton('*Добавить общую покупку')
+        btn1 = types.KeyboardButton('*Общие покупки')
         btn2 = types.KeyboardButton('*Подтвердить общую покупку')
         markup.row(btn1, btn2)
         btn3 = types.KeyboardButton('*Мои долги')
@@ -133,9 +133,17 @@ def on_click_menu_start(message):
     elif message.text == '✅ Обязанности':
         menu_tasks_list(message)
 
+    elif message.text == '*Общие покупки':
+        help_text = ''
+        with open("about_shopping_for_all.txt", "r", encoding='UTF8') as f:
+            for line in f.readlines():
+                help_text += line
+        bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
+        bot.register_next_step_handler(message, on_click_menu_start)
+
     elif message.text == '🤖 О боте':
         help_text = ''
-        with open("about.txt", "r", encoding='UTF8') as f:
+        with open("about_bot.txt", "r", encoding='UTF8') as f:
             for line in f.readlines():
                 help_text += line
         bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
@@ -448,7 +456,7 @@ def leave_room(message):
         menu_room_info(message)
     elif message.text == '🚫 Да, я точно хочу покинуть комнату':
         room = db_functions.get_user_room(message)
-        if room[0][1] == message.from_user.id:
+        if room[0][1] != message.from_user.id:
             room = db_functions.get_user_room(message)
             db_functions.leave_room(message)
             bot.send_message(message.chat.id,
