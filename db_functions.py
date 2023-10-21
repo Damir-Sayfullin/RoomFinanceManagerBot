@@ -316,45 +316,31 @@ def add_product(message, room_id):
     conn.close()
 
 
-def delete_product(message, room_id):
-    """ Удаление продукта из списка покупок. Возвращает название продукта при успешном удалении, иначе False """
+def delete_product(buy_id):
+    """ Удаление продукта из списка покупок """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    # получение списка покупок комнаты
-    cur.execute("SELECT * FROM shopping_list WHERE room_id=?", (room_id,))
-    products = cur.fetchall()
-    for product in products:
-        if message.text == str(product[0]):
-            cur.execute("DELETE FROM shopping_list WHERE id=? ", message.text)
-            conn.commit()
-            cur.close()
-            conn.close()
-            return product[2]
+    cur.execute("DELETE FROM shopping_list WHERE id=? ", str(buy_id))
+    conn.commit()
     cur.close()
     conn.close()
-    return False
 
 
-def switch_product(message, room_id):
-    """ Смена статуса продукта в списке покупок. Возвращает список (название, статус) или None """
+def switch_product(buy_id):
+    """ Смена статуса продукта в списке покупок """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    # получение списка покупок комнаты
-    cur.execute("SELECT * FROM shopping_list WHERE room_id=?", (room_id,))
-    products = cur.fetchall()
-    for product in products:
-        if message.text == str(product[0]):
-            if product[3]:
-                cur.execute("UPDATE shopping_list SET is_completed=0 WHERE id=?", (message.text,))
-                status = False
+    cur.execute("SELECT * FROM shopping_list")
+    shopping_list = cur.fetchall()
+    for buy in shopping_list:
+        if buy[0] == buy_id:
+            if buy[3]:
+                cur.execute("UPDATE shopping_list SET is_completed=0 WHERE id=?", (buy_id, ))
             else:
-                cur.execute("UPDATE shopping_list SET is_completed=1 WHERE id=?", (message.text,))
-                status = True
+                cur.execute("UPDATE shopping_list SET is_completed=1 WHERE id=?", (buy_id,))
             conn.commit()
-            cur.close()
-            conn.close()
-            return product[2], status
-    return None
+    cur.close()
+    conn.close()
 
 
 def get_tasks_list(room_id):
@@ -400,23 +386,14 @@ def add_task(message, room_id):
     return users[0][1], users[0][3]
 
 
-def delete_task(message, room_id):
-    """ Удаление задачи из списка задач. Возвращает название задачи при успешном удалении, иначе False """
+def delete_task(task_id):
+    """ Удаление задачи из списка задач """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    # получение списка задач комнаты
-    cur.execute("SELECT * FROM tasks_list WHERE room_id=?", (room_id,))
-    tasks = cur.fetchall()
-    for task in tasks:
-        if message.text == str(task[0]):
-            cur.execute("DELETE FROM tasks_list WHERE id=? ", message.text)
-            conn.commit()
-            cur.close()
-            conn.close()
-            return task[2]
+    cur.execute("DELETE FROM tasks_list WHERE id=? ", str(task_id))
+    conn.commit()
     cur.close()
     conn.close()
-    return False
 
 
 def get_next_user(user_id, room_id):
@@ -441,28 +418,23 @@ def get_next_user(user_id, room_id):
     return next_user
 
 
-def switch_task(message, room_id):
-    """ Смена выполняющего задачи. Возвращает данные о задаче, текущего и следующего выполняющего,
-    или 'error', если выполняющий это отправитель сообщения,
-    или None """
+def switch_task(task_id, room_id):
+    """ Смена выполняющего задачи. Возвращает текущего и следующего выполняющего """
     conn = sqlite3.connect('chatbot.db')
     cur = conn.cursor()
-    # получение списка задач комнаты
-    cur.execute("SELECT * FROM tasks_list WHERE room_id=?", (room_id,))
+    # получение списка задач
+    cur.execute("SELECT * FROM tasks_list")
     tasks = cur.fetchall()
     # получение списка участников комнаты
     users = get_users_by_room_id(room_id)
     for task in tasks:
-        if message.text == str(task[0]):
+        if task[0] == task_id:
             for user in users:
                 if user[0] == task[3]:
-                    if user[0] == message.from_user.id:
-                        return 'error'
                     next_executor = get_next_user(user[0], room_id)
                     cur.execute("UPDATE tasks_list SET executor_id=? WHERE id=?",
                                 (next_executor[0], task[0]))
                     conn.commit()
                     cur.close()
                     conn.close()
-                    return task, user, next_executor
-    return None
+                    return task[2], user, next_executor

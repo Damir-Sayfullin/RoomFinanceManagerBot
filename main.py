@@ -153,7 +153,7 @@ def on_click_menu_start(message):
         command_test(message)
     else:
         bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
-                             parse_mode='html')
+                         parse_mode='html')
         bot.register_next_step_handler(message, on_click_menu_start)
 
 
@@ -660,7 +660,7 @@ def menu_shopping_list(message):
         if shopping_list:
             output_shopping_list = '<u><b>Список покупок</b></u>\n\n'
             for buy in shopping_list:
-                output_shopping_list += f'🆔 {buy[0]} 📦 {buy[2]} '
+                output_shopping_list += f'📦 {buy[2]} '
                 if buy[3] == 1:
                     output_shopping_list += '✅\n'
                 else:
@@ -692,25 +692,34 @@ def on_click_menu_shopping_list(message):
         bot.register_next_step_handler(message, add_product)
 
     elif message.text == '🗑️ Удалить продукт':
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        btn = types.KeyboardButton('⬅️ Назад')
-        markup.add(btn)
         bot.send_message(message.chat.id, f"Какой продукт нужно удалить из списка?\n"
-                                          f"<b>Введи ID продукта:</b>", parse_mode='html', reply_markup=markup)
+                                          f"<b>Выберите продукт с помощью кнопок:</b>",
+                         parse_mode='html', reply_markup=get_shopping_list_buttons_markup(message))
         bot.register_next_step_handler(message, delete_product)
 
     elif message.text == '🔄 Переключить статус':
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        btn = types.KeyboardButton('⬅️ Назад')
-        markup.add(btn)
         bot.send_message(message.chat.id, f"У какого продукта нужно переключить статус?\n"
-                                          f"<b>Введи ID продукта:</b>", parse_mode='html', reply_markup=markup)
+                                          f"<b>Выберите продукт с помощью кнопок:</b>",
+                         parse_mode='html', reply_markup=get_shopping_list_buttons_markup(message))
         bot.register_next_step_handler(message, switch_product)
 
     else:
         bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
                          parse_mode='html')
         bot.register_next_step_handler(message, on_click_menu_shopping_list)
+
+
+def get_shopping_list_buttons_markup(message):
+    room = db_functions.get_user_room(message)
+    shopping_list = db_functions.get_shopping_list(room[0][0])
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn = types.KeyboardButton('⬅️ Назад')
+    markup.add(btn)
+    if shopping_list:
+        for buy in shopping_list:
+            btn = types.KeyboardButton(f'📦 {buy[2]} ✅' if buy[3] else f'📦 {buy[2]} ❌')
+            markup.add(btn)
+    return markup
 
 
 def add_product(message):
@@ -741,22 +750,29 @@ def delete_product(message):
             menu_shopping_list(message)
         else:
             room = db_functions.get_user_room(message)
-            deleted_product = db_functions.delete_product(message, room[0][0])
+            shopping_list = db_functions.get_shopping_list(room[0][0])
+            deleted_product = ''
+            if shopping_list:
+                for buy in shopping_list:
+                    if message.text == (f'📦 {buy[2]} ✅' if buy[3] else f'📦 {buy[2]} ❌'):
+                        db_functions.delete_product(buy[0])
+                        deleted_product = f'{buy[2]}'
+                        break
             if deleted_product:
                 bot.send_message(message.chat.id,
                                  f"Продукт <b>\"{deleted_product}\"</b> был удален "
-                                 f"из списка покупок комнаты <b>\"{room[0][2]}\"</b>.", parse_mode='html')
-                menu_shopping_list(message)
+                                 f"из списка покупок комнаты <b>\"{room[0][2]}\"</b>.",
+                                 parse_mode='html', reply_markup=get_shopping_list_buttons_markup(message))
+                bot.register_next_step_handler(message, delete_product)
             else:
                 bot.send_message(message.chat.id,
-                                 f"<b>Ошибка!</b> Продукт c <b>ID={message.text}</b> не был найден "
+                                 f"<b>Ошибка!</b> Продукт <b>\"{message.text}\"</b> не найден "
                                  f"в списке покупок комнаты <b>\"{room[0][2]}\"</b>.\n"
-                                 f"<b>Введи ID продукта еще раз:</b>", parse_mode='html')
+                                 f"<b>Выбери продукт с помощью кнопок:</b>", parse_mode='html')
                 bot.register_next_step_handler(message, delete_product)
     else:
-        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID продукта "
-                                          f"может быть только <b>число</b>!\n"
-                                          f"<b>Введи ID продукта:</b>", parse_mode='html')
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Выбери продукт <b>с помощью кнопок</b>!\n",
+                         parse_mode='html')
         bot.register_next_step_handler(message, delete_product)
 
 
@@ -768,27 +784,33 @@ def switch_product(message):
             menu_shopping_list(message)
         else:
             room = db_functions.get_user_room(message)
-            switch_result = db_functions.switch_product(message, room[0][0])
-            if switch_result:
-                if switch_result[1]:
+            shopping_list = db_functions.get_shopping_list(room[0][0])
+            switched_product = ()
+            if shopping_list:
+                for buy in shopping_list:
+                    if message.text == (f'📦 {buy[2]} ✅' if buy[3] else f'📦 {buy[2]} ❌'):
+                        db_functions.switch_product(buy[0])
+                        switched_product = f'{buy[2]}', buy[3]
+                        break
+            if switched_product:
+                if not switched_product[1]:
                     bot.send_message(message.chat.id,
-                                     f"Продукт <b>\"{switch_result[0]}\"</b> был отмечен как <b>купленный</b>.",
-                                     parse_mode='html')
+                                     f"Продукт <b>\"{switched_product[0]}\"</b> был отмечен как <b>купленный</b>.",
+                                     parse_mode='html', reply_markup=get_shopping_list_buttons_markup(message))
                 else:
                     bot.send_message(message.chat.id,
-                                     f"Продукт <b>\"{switch_result[0]}\"</b> был отмечен как <b>не купленный</b>.",
-                                     parse_mode='html')
-                menu_shopping_list(message)
+                                     f"Продукт <b>\"{switched_product[0]}\"</b> был отмечен как <b>не купленный</b>.",
+                                     parse_mode='html', reply_markup=get_shopping_list_buttons_markup(message))
+                bot.register_next_step_handler(message, switch_product)
             else:
                 bot.send_message(message.chat.id,
-                                 f"<b>Ошибка!</b> Продукт c <b>ID={message.text}</b> не был найден "
+                                 f"<b>Ошибка!</b> Продукт <b>\"{message.text}\"</b> не найден "
                                  f"в списке покупок комнаты <b>\"{room[0][2]}\"</b>.\n"
-                                 f"<b>Введи ID продукта еще раз:</b>", parse_mode='html')
+                                 f"<b>Выбери продукт с помощью кнопок:</b>", parse_mode='html')
                 bot.register_next_step_handler(message, switch_product)
     else:
-        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID продукта "
-                                          f"может быть только <b>число</b>!\n"
-                                          f"<b>Введи ID продукта:</b>", parse_mode='html')
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Выбери продукт <b>с помощью кнопок:</b>",
+                         parse_mode='html')
         bot.register_next_step_handler(message, switch_product)
 
 
@@ -802,16 +824,18 @@ def menu_tasks_list(message):
             btn2 = types.KeyboardButton('🗑️ Удалить задачу')
             markup.row(btn1, btn2)
         btn3 = types.KeyboardButton('☑️ Отметить как выполненную')
-        btn4 = types.KeyboardButton('⬅️ Назад')
+        btn4 = types.KeyboardButton('❓ Что такое обязанности?')
+        btn5 = types.KeyboardButton('⬅️ Назад')
         markup.row(btn3)
         markup.row(btn4)
+        markup.row(btn5)
         # получение списка продуктов
         tasks_list = db_functions.get_tasks_list(room[0][0])
         if tasks_list:
             output_tasks_list = '<u><b>График обязанностей</b></u>\n\n'
             for task in tasks_list:
                 user = db_functions.get_user_by_id(task[3])
-                output_tasks_list += f'🆔 {task[0]} 📝 {task[2]} 👤 <a href="t.me/{user[3]}">{user[1]}</a>\n'
+                output_tasks_list += f'📝 {task[2]} 👤 <a href="t.me/{user[3]}">{user[1]}</a>\n'
         else:
             output_tasks_list = '<u><b>Список задач пуст</b></u>\n'
         output_tasks_list += '\n<b>Выбери команду из меню:</b>'
@@ -848,11 +872,9 @@ def on_click_menu_tasks_list(message):
     elif message.text == '🗑️ Удалить задачу':
         room = db_functions.get_user_room(message)
         if room[0][1] == message.from_user.id:
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            btn = types.KeyboardButton('⬅️ Назад')
-            markup.add(btn)
             bot.send_message(message.chat.id, f"Какую задачу хочешь удалить?\n"
-                                              f"<b>Введи ID задачи:</b>", parse_mode='HTML', reply_markup=markup)
+                                              f"<b>Выбери задачу с помощью кнопок:</b>",
+                             parse_mode='html', reply_markup=get_tasks_list_buttons_markup(message))
             bot.register_next_step_handler(message, delete_task)
         else:
             bot.send_message(message.chat.id, f"<b>Ошибка!</b> Удалять задачи может только админ комнаты.",
@@ -860,17 +882,43 @@ def on_click_menu_tasks_list(message):
             bot.register_next_step_handler(message, on_click_menu_room_info)
 
     elif message.text == '☑️ Отметить как выполненную':
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        btn = types.KeyboardButton('⬅️ Назад')
-        markup.add(btn)
         bot.send_message(message.chat.id, f"Какую задачу нужно отметить как выполненную?\n"
-                                          f"<b>Введи ID задачи:</b>", parse_mode='html', reply_markup=markup)
+                                          f"<b>Выбери задачу с помощью кнопок:</b>",
+                         parse_mode='html', reply_markup=get_tasks_list_buttons_markup(message))
         bot.register_next_step_handler(message, switch_task)
+
+    elif message.text == '❓ Что такое обязанности?':
+        help_text = ''
+        with open("about_tasks_list.txt", "r", encoding='UTF8') as f:
+            for line in f.readlines():
+                help_text += line
+        bot.send_message(message.chat.id, help_text, parse_mode='html', disable_web_page_preview=True)
+        bot.register_next_step_handler(message, on_click_menu_tasks_list)
 
     else:
         bot.send_message(message.chat.id, f"<b>Ошибка!</b> Неизвестная команда. Попробуй еще раз!",
                          parse_mode='html')
         bot.register_next_step_handler(message, on_click_menu_tasks_list)
+
+
+def get_tasks_list_buttons_markup(message):
+    room = db_functions.get_user_room(message)
+    tasks_list = db_functions.get_tasks_list(room[0][0])
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn = types.KeyboardButton('⬅️ Назад')
+    markup.add(btn)
+    for task in tasks_list:
+        if room[0][1] != message.from_user.id:
+            if message.from_user.id != task[3]:
+                user = db_functions.get_user_by_id(task[3])
+                btn = types.KeyboardButton(f'📝 {task[2]} 👤 {user[1]}')
+                markup.add(btn)
+        else:
+            user = db_functions.get_user_by_id(task[3])
+            btn = types.KeyboardButton(f'📝 {task[2]} 👤 {user[1]}')
+            markup.add(btn)
+    return markup
+
 
 
 def add_task(message):
@@ -904,7 +952,14 @@ def delete_task(message):
             menu_tasks_list(message)
         else:
             room = db_functions.get_user_room(message)
-            deleted_task = db_functions.delete_task(message, room[0][0])
+            tasks_list = db_functions.get_tasks_list(room[0][0])
+            deleted_task = ''
+            for task in tasks_list:
+                user = db_functions.get_user_by_id(task[3])
+                if message.text == f'📝 {task[2]} 👤 {user[1]}':
+                    db_functions.delete_task(task[0])
+                    deleted_task = task[2]
+                    break
             if deleted_task:
                 bot.send_message(message.chat.id,
                                  f"Задача <b>\"{deleted_task}\"</b> была удалена "
@@ -912,14 +967,13 @@ def delete_task(message):
                 menu_tasks_list(message)
             else:
                 bot.send_message(message.chat.id,
-                                 f"<b>Ошибка!</b> Задача c <b>ID={message.text}</b> не была найдена "
-                                 f"в списке задач комнаты <b>\"{room[0][2]}\"</b>.\n"
-                                 f"<b>Введи ID задачи еще раз:</b>", parse_mode='html')
+                                 f'<b>Ошибка!</b> Задача "<b>{message.text}</b>" не была найдена '
+                                 f'в списке задач комнаты <b>\"{room[0][2]}\"</b>.\n'
+                                 f'<b>Выбери задачу с помощью кнопок:</b>', parse_mode='html')
                 bot.register_next_step_handler(message, delete_task)
     else:
-        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID задачи "
-                                          f"может быть только <b>число</b>!\n"
-                                          f"<b>Введи ID задачи:</b>", parse_mode='html')
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Выбери задачу <b>c помощью кнопок:</b>",
+                         parse_mode='html')
         bot.register_next_step_handler(message, delete_task)
 
 
@@ -931,14 +985,24 @@ def switch_task(message):
             menu_tasks_list(message)
         else:
             room = db_functions.get_user_room(message)
-            switch_result = db_functions.switch_task(message, room[0][0])
-            if switch_result:
-                if switch_result != 'error':
+            tasks_list = db_functions.get_tasks_list(room[0][0])
+            switched_task = ''
+            for task in tasks_list:
+                user = db_functions.get_user_by_id(task[3])
+                if message.text == f'📝 {task[2]} 👤 {user[1]}':
+                    if task[3] == message.from_user.id:
+                        switched_task = 'error'
+                        break
+                    else:
+                        switched_task = db_functions.switch_task(task[0], room[0][0])
+                        break
+            if switched_task:
+                if switched_task != 'error':
                     bot.send_message(message.chat.id,
-                                     f"Задача <b>\"{switch_result[0][2]}\"</b> была выполнена пользователем "
-                                     f"<a href='t.me/{switch_result[1][3]}'>{switch_result[1][1]}</a>.\n"
+                                     f"Задача <b>\"{switched_task[0]}\"</b> была выполнена пользователем "
+                                     f"<a href='t.me/{switched_task[1][3]}'>{switched_task[1][1]}</a>.\n"
                                      f"Следующий выполняющий этой задачи: "
-                                     f"<a href='t.me/{switch_result[2][3]}'>{switch_result[2][1]}</a>.",
+                                     f"<a href='t.me/{switched_task[2][3]}'>{switched_task[2][1]}</a>.",
                                      parse_mode='html', disable_web_page_preview=True)
                 else:
                     bot.send_message(message.chat.id,
@@ -949,14 +1013,12 @@ def switch_task(message):
                 menu_tasks_list(message)
             else:
                 bot.send_message(message.chat.id,
-                                 f"<b>Ошибка!</b> Задача c <b>ID={message.text}</b> не была найдена "
+                                 f'<b>Ошибка!</b> Задача <b>"{message.text}"</b> не была найдена '
                                  f"в списке задач комнаты <b>\"{room[0][2]}\"</b>.\n"
-                                 f"<b>Введи ID задачи еще раз:</b>", parse_mode='html')
+                                 f"<b>Выбери задачу с помощью кнопок:</b>", parse_mode='html')
                 bot.register_next_step_handler(message, switch_task)
     else:
-        bot.send_message(message.chat.id, f"<b>Ошибка!</b> В качестве ID задачи "
-                                          f"может быть только <b>число</b>!\n"
-                                          f"<b>Введи ID задачи:</b>", parse_mode='html')
+        bot.send_message(message.chat.id, f"<b>Ошибка!</b> Выбери задачу <b>с помощью кнопок:</b>", parse_mode='html')
         bot.register_next_step_handler(message, switch_task)
 
 
