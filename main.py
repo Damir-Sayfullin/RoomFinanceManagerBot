@@ -874,7 +874,7 @@ def on_click_menu_tasks_list(message):
         if room[0][1] == message.from_user.id:
             bot.send_message(message.chat.id, f"Какую задачу хочешь удалить?\n"
                                               f"<b>Выбери задачу с помощью кнопок:</b>",
-                             parse_mode='html', reply_markup=get_tasks_list_buttons_markup(message))
+                             parse_mode='html', reply_markup=get_tasks_list_buttons_markup(message, True))
             bot.register_next_step_handler(message, delete_task)
         else:
             bot.send_message(message.chat.id, f"<b>Ошибка!</b> Удалять задачи может только админ комнаты.",
@@ -901,14 +901,14 @@ def on_click_menu_tasks_list(message):
         bot.register_next_step_handler(message, on_click_menu_tasks_list)
 
 
-def get_tasks_list_buttons_markup(message):
+def get_tasks_list_buttons_markup(message, get_all_tasks: bool = False):
     room = db_functions.get_user_room(message)
     tasks_list = db_functions.get_tasks_list(room[0][0])
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btn = types.KeyboardButton('⬅️ Назад')
     markup.add(btn)
     for task in tasks_list:
-        if room[0][1] != message.from_user.id:
+        if not get_all_tasks:
             if message.from_user.id != task[3]:
                 user = db_functions.get_user_by_id(task[3])
                 btn = types.KeyboardButton(f'📝 {task[2]} 👤 {user[1]}')
@@ -918,7 +918,6 @@ def get_tasks_list_buttons_markup(message):
             btn = types.KeyboardButton(f'📝 {task[2]} 👤 {user[1]}')
             markup.add(btn)
     return markup
-
 
 
 def add_task(message):
@@ -1063,7 +1062,7 @@ def command_test(message):
 # обработка команды repair
 @bot.message_handler(commands=['repair'])
 def command_repair(message):
-    bot.send_message(message.chat.id, 'Бот был починен. <b>Отправь любое сообщение, чтобы продолжить.</b>',
+    bot.send_message(message.chat.id, 'Бот починен. <b>Отправь любое сообщение, чтобы продолжить.</b>',
                      parse_mode='html')
 
 
